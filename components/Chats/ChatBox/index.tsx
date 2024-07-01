@@ -1,5 +1,5 @@
 import { Image, Platform, ScrollView, Text, View, TouchableOpacity, Linking } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { chatType, userType } from '@/types'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons'
 import moment from 'moment'
 import { router } from 'expo-router'
 import Animated, {  FadeInRight, FlipInXDown, LightSpeedInRight, SlideInRight } from 'react-native-reanimated'
-import { setReplyChat } from '@/state/features/chatSlice'
+import { addToUserCache, setReplyChat } from '@/state/features/chatSlice'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
 import RemoteImage from '@/components/RemoteImage'
@@ -26,12 +26,19 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
   const [userIsBlockedInReply, setUserIsBlockedInReply] = useState(false)
   const [urlPresent, setUrlPresent] = useState(false)
   const [url, setUrl] = useState('')
+  const userCache = useSelector((state:RootState) => state.chat.userCache)
   const dispatch = useDispatch()
   const styles = getStyles(appearanceMode)
   const formattedTime = moment.utc(dateCreated).local().format('HH:mm')
   const formattedContent = content.startsWith('https://') ? content.toLowerCase() : `https://${content}`.toLowerCase()
 
-  const fetchUserData = async () => {
+
+  const fetchUserData = useCallback(async () => {
+    if(userCache[user_id as string]) {
+      setUser(userCache[user_id as string])
+      return;
+    }
+
     const { data, error } = await supabase
     .from('Users')
     .select('*')
@@ -39,18 +46,18 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
     .single()
     if(!error) {
       setUser(data)
+      dispatch(addToUserCache({ [user_id as string]: data }))
+    } else {
+      console.log('problem occured fetching user data', error.message)
     }
-  }
+  }, [user_id, userCache, dispatch])
 
-  useEffect(() => {
-    fetchUserData()
-    extractLink()
-  }, [])
-
+  
+  
   const extractLink = () => {
     const urlRegex = /\b(https?:\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
     const matches = formattedContent.match(urlRegex);
-
+    
     if (matches) {
       const validMatches = matches.filter((url) => {
         try {
@@ -74,12 +81,11 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
     }
   };
 
-
   useEffect(() => {
-    fetchUserData();
-    extractLink();
-  }, []);
-
+    fetchUserData()
+    extractLink()
+  }, [fetchUserData, extractLink])
+  
   const handleOpenLink = async () => {
     // Use the trimmed url state here
     const supported = await Linking.canOpenURL(url);
@@ -90,7 +96,7 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
       dispatch(setSystemNotificationData({ type: 'error', message: "Couldn't open link" }));
     }
   };
-
+  
   const handleProfileNavigation = () => {
     dispatch(getUserData(userData))
     router.push({
@@ -141,14 +147,16 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
   }, [])
 
 
+
   return (
     <>
-      { !userIsBlocked && <Animated.View entering={Platform.OS === 'android' ? FadeInRight : LightSpeedInRight.springify().damping(20)} style={[styles.container]}>
+      { !userIsBlocked && <Animated.View key={String(chat_id)} entering={Platform.OS === 'android' ? FadeInRight : LightSpeedInRight.springify().damping(20)} style={[styles.container]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleProfileNavigation} style={styles.headerLeft}>
             {/* <RemoteImage path={userData?.profileImage} style={styles.profileImage}/> */}
             <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-            <Text style={styles.username}>{user?.username}</Text>
+            { !user?.isRobot && <Text style={styles.username}>{user?.username}</Text>}
+            { user?.isRobot && <Text style={styles.username}>Dialogue Robot</Text>}
           </TouchableOpacity>
 
           <View style={styles.headerRight}>
@@ -164,7 +172,7 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
               <View style={styles.replyChatSideBar}/>
 
               { !userIsBlockedInReply && <View>
-                <Text style={styles.replyChatUsername}>{replyChat?.username}</Text>
+                <Text style={styles.replyChatUsername}>{replyChat?.username.split('-')[0]}</Text>
                 <Text numberOfLines={3} ellipsizeMode='tail' style={styles.replyChatContent}>{replyChat?.content}</Text>
               </View>}
 

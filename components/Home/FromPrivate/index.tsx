@@ -7,24 +7,29 @@ import { convoType, userType } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { router } from 'expo-router'
 import { getUserData } from '@/state/features/userSlice'
-import { getConvoForChat } from '@/state/features/chatSlice'
+import { addToUserCache, getConvoForChat } from '@/state/features/chatSlice'
 import { Skeleton } from 'moti/skeleton'
 
 const FromPrivate = (convo: convoType) => {
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
     const [user, setUser] = useState<userType>()
+    const userCache = useSelector((state:RootState) => state.chat.userCache)
     const styles = getStyles(appearanceMode)
     const dispatch = useDispatch()
 
     const fetchUserData = async () => {
+        if(userCache[convo.user_id as string]) {
+            setUser(userCache[convo.user_id as string])
+            return;
+        }
         const { data, error } = await supabase
         .from('Users')
         .select('*')
         .eq('user_id', convo.user_id)
         .single()
-
         if(!error) {
             setUser(data)
+            dispatch(addToUserCache({ [convo.user_id as string]: data }))
         } else {
             console.log("Problem getting user data: ", error.message)
         }

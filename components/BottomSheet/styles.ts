@@ -131,6 +131,37 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             marginBottom: 25,
             marginTop: 10
         },
+        pickRoleText: {
+            color: appearanceMode.textColor,
+            fontFamily: 'bold',
+            fontSize: 13
+        },
+        actionButton: {
+            backgroundColor: "rgba(57, 57, 57, 0.3)", 
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 7
+        },
+        actionButtonSelected: {
+            backgroundColor: appearanceMode.primary,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 7
+        },
+        actionButtonText: {
+            color: appearanceMode.secondary,
+            fontFamily: 'bold'
+        },
+        actionButtonTextSelected: {
+            color: 'white',
+            fontFamily: 'extrabold'
+        },
+        dialogueCompletionText: {
+            color: appearanceMode.textColor,
+            fontFamily: 'extrabold',
+            textAlign: 'center',
+            marginBottom: 10,
+        },
         mediaContainer: {
             flexDirection: 'row',
             alignItems: 'center',
@@ -140,6 +171,12 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
         mediaLeft: {
             flexDirection: 'row',
             alignItems: 'center',
+        },
+        specialContainer: {
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center',
+            justifyContent: 'center'
         },
         privateButton: {
             borderWidth: 1,
@@ -159,6 +196,10 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             fontFamily: 'extrabold',
             fontSize: 13
         },
+        dialogueRobot: {
+            width: 30,
+            height: 30
+        },
         startConvoText: {
             color: appearanceMode.primary,
             fontFamily: 'extrabold',
@@ -170,7 +211,6 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             color: appearanceMode.secondary,
             marginVertical: 15,
             fontFamily: 'extrabold',
-
         },
         image: {
             width: Platform.OS === 'ios' ? 350 : 280,

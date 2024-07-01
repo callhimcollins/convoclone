@@ -1,17 +1,18 @@
 export type userType = {
     id: Number,
-    user_id?: string | null,
-    email?: string | null,
-    profileImage?: string | null,
-    username?: string | null,
-    name?: string | null,
-    bio?: string | null,
-    audio?: string | null,
-    convos?: Array<convoType> | null,
-    dateCreated?: string | null,
-    lastUpdated?: string | null,
-    backgroundProfileImage?: string | null
-    links?: Array<linkType> | null
+    user_id?: string,
+    email?: string,
+    profileImage?: string,
+    username?: string,
+    name?: string,
+    bio?: string,
+    audio?: string,
+    convos?: Array<convoType>,
+    dateCreated?: string,
+    lastUpdated?: string,
+    backgroundProfileImage?: string
+    links?: Array<linkType>,
+    isRobot?: boolean
 }
 
 export type blockedUserType = {
@@ -52,7 +53,8 @@ export type convoType = {
     numberOfKeepUps: Number,
     dateCreated?: string,
     lastUpdated?: string,
-    link?: string
+    link?: string,
+    dialogue: boolean
 }
 
 export type experienceCheckType = {

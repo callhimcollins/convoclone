@@ -14,14 +14,18 @@
     },
     "ios": {
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"]        
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.startconvoapp.convoclone"
+      "package": "com.startconvoapp.convoclone",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "707799607908",
+    "project_id": "convoclone-99900",
+    "storage_bucket": "convoclone-99900.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:707799607908:android:35f32b4c86415b4b5f4d71",
+        "android_client_info": {
+          "package_name": "com.startconvoapp.convoclone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAv6FjFS2MUwe8sEIjxqCTcYye62G0Mz-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

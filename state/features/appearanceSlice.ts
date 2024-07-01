@@ -23,7 +23,7 @@ const darkMode = {
     name: 'dark',
     primary: '#625FE0',
     secondary: '#393939',
-    backgroundColor: '#0F0E13',
+    backgroundColor: '#0E0E13',
     textColor: 'white',
     backgroundTransparent: 'rgba(0, 0, 0, 0.3)',
     faint: '#292929',

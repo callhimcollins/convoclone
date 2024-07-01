@@ -16,7 +16,7 @@ const SearchHeader = (search: SearchHeaderProps) => {
 
  
     const renderAppearanceModeView = () => {
-        if(appearanceMode.name === 'light' || Platform.OS === 'android') {
+        if(Platform.OS === 'android') {
             return (
                 <View style={styles.container}>
                     <TextInput value={search.searchValue} onChangeText={search.searchFuntion} placeholderTextColor={appearanceMode.faint} placeholder='Search' style={styles.textInput}/>
@@ -24,7 +24,7 @@ const SearchHeader = (search: SearchHeaderProps) => {
             )
         } else {
             return (
-                <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={40} style={styles.container}>
+                <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.container}>
                     <TextInput value={search.searchValue} onChangeText={search.searchFuntion} placeholderTextColor={appearanceMode.faint} placeholder='Search' style={styles.textInput}/>
                 </BlurView>
             )

@@ -189,6 +189,31 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             fontSize: 15,
             fontFamily: 'extrabold'
         },
+        visualizer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginHorizontal: 25,
+            borderRadius: 10,
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            padding: 5,
+            marginTop: 10,
+            gap: 3
+        },
+        bar: {
+            width: 8,
+            borderRadius: 10,
+            backgroundColor: appearanceMode.primary,
+            marginHorizontal: 1,
+            
+        },
+        notificationContainer: {
+            backgroundColor: 'transparent', 
+            position: 'absolute', 
+            width: '100%', 
+            zIndex: 200, 
+            borderRadius: 10
+        },
     })
 }
 

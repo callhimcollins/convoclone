@@ -1,4 +1,4 @@
-import { Dimensions, StyleSheet } from "react-native";
+import { Dimensions, Platform, StyleSheet } from "react-native";
 import { appearanceStateType } from "@/state/features/appearanceSlice";
 
 const getStyles = (appearanceMode: appearanceStateType) => {
@@ -6,7 +6,7 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         keyboardContainer: {
             position: 'absolute',
             width: '100%',
-            bottom: 0,
+            bottom: Platform.OS === 'ios' ? 0 : 0,
             zIndex: 100,
         },
         container: {

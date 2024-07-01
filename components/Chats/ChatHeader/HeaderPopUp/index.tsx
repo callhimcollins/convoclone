@@ -9,6 +9,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import { supabase } from '@/lib/supabase'
 import { userType } from '@/types'
+import { addToUserCache } from '@/state/features/chatSlice'
 
 
 const images = ["https://www.rollingstone.com/wp-content/uploads/2024/06/kendrick-lamar-not-like-us.jpg?w=1581&h=1054&crop=1", "https://image-cdn.hypb.st/https%3A%2F%2Fhypebeast.com%2Fimage%2F2024%2F06%2F20%2Fkendrick-lamar-the-pop-out-1.jpg?cbr=1&q=90", "https://img.buzzfeed.com/buzzfeed-static/complex/images/kiao5opbibefbkhqcyab/kendrick-lamar-the-heart-part-5.jpg?output-format=jpg&output-quality=auto", "https://www.rollingstone.com/wp-content/uploads/2024/06/kendrick-lamar-not-like-us.jpg?w=1581&h=1054&crop=1", "https://image-cdn.hypb.st/https%3A%2F%2Fhypebeast.com%2Fimage%2F2024%2F06%2F20%2Fkendrick-lamar-the-pop-out-1.jpg?cbr=1&q=90",  ]
@@ -17,14 +18,14 @@ const HeaderPopUp = () => {
     const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
     const convo = useSelector((styles: RootState) => styles.chat.convo)
     const [userData, setUserData] = useState<userType>()
-    // const userData = useSelector((state:RootState) => state.user.userData)
+    const userCache = useSelector((state:RootState) => state.chat.userCache)
     const [keepingUp, setKeepingUp] = useState(false)
     const styles = getStyles(appearanceMode)
     const dispatch = useDispatch()
 
     const convoKeepUpData = {
         user_id: authenticatedUserData?.user_id,
-        convo_id: convo.convo_id,
+        convo_id: convo?.convo_id,
         userData: authenticatedUserData,
         convoData: convo
     }
@@ -40,6 +41,10 @@ const HeaderPopUp = () => {
 
     const fetchUserData = useCallback(async () => {
         try {
+            if(userCache[convo?.user_id as string]) {
+                setUserData(userCache[convo?.user_id as string])
+                return;
+            }
             const { data, error } = await supabase
             .from('Users')
             .select('*')
@@ -47,6 +52,7 @@ const HeaderPopUp = () => {
             .single()
             if(!error) {
                 setUserData(data)
+                dispatch(addToUserCache({ [convo?.user_id as string]: data }))
             }
         } catch (error) {
             console.log("error getting user")
@@ -76,7 +82,7 @@ const HeaderPopUp = () => {
         .select('*')
         .eq('sender_id', String(authenticatedUserData?.user_id))
         .eq('receiver_id', String(convo.user_id))
-        .eq('convo->>convo_id', String(convo.convo_id))
+        .eq('convo->>convo_id', String(convo?.convo_id))
         .eq('type', 'keepup')
         .single()
         
@@ -112,7 +118,7 @@ const HeaderPopUp = () => {
             console.log("Couldn't fetch notification")
         }
         
-    }, [notificationForKeepUp, convo.user_id, authenticatedUserData?.user_id])
+    }, [notificationForKeepUp, convo?.user_id, authenticatedUserData?.user_id])
     
     const handleKeepUp = useCallback(async () => {
         const { error } = await supabase
@@ -131,7 +137,7 @@ const HeaderPopUp = () => {
         const { error } = await supabase
         .from('convoKeepUps')
         .delete()
-        .eq('convo_id', convo.convo_id)
+        .eq('convo_id', convo?.convo_id)
         .eq('user_id', String(authenticatedUserData?.user_id))
 
         if(error) {
@@ -146,7 +152,7 @@ const HeaderPopUp = () => {
         const { data, error } = await supabase
         .from('convoKeepUps')
         .select('*')
-        .eq('convo_id', convo.convo_id)
+        .eq('convo_id', convo?.convo_id)
         .eq('user_id', String(authenticatedUserData?.user_id))
         .single()
         if(error) {

@@ -403,10 +403,11 @@ const ProfileDetail = ( user:userType) => {
                 />
             </View>
             <View style={styles.userDetailContainer}>
-                <RemoteImage style={styles.profileImage} path={authenticatedUserData?.profileImage}/>
+                {/* <RemoteImage style={styles.profileImage} path={authenticatedUserData?.profileImage}/> */}
+                <Image source={require('@/assets/images/blankprofile.png')} style={styles.profileImage}/>
                 <Animated.View style={[styles.usernameContainer, animatedUsernameContainerStyles]}>
                     <TouchableOpacity onPress={handleShowProfileModal}>
-                      <Text style={styles.username}>{ user.username }</Text>
+                      <Text style={styles.username}>{ user.username?.split('-')[0] }</Text>
                       <Text numberOfLines={3} style={styles.bio}>{user.bio}</Text>
                     </TouchableOpacity>
                     { user.links && user.links.length > 0 && <ScrollView showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, alignItems: 'center' }} horizontal>

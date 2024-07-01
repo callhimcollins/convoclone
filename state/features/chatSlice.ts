@@ -8,7 +8,8 @@ const initialState:any = {
     scrollToID: null,
     itemHeights: {},
     showModal: false,
-    modalData: null
+    modalData: null,
+    userCache: {}
 }
 
 const chatSlice = createSlice({
@@ -29,10 +30,13 @@ const chatSlice = createSlice({
         },
         setModalData: (state, action) => {
             state.modalData = action.payload
+        },
+        addToUserCache: (state, action) => {
+            state.userCache =  {...state.userCache, ...action.payload}
         }
     }
 })
 
 
-export const { getConvoForChat, updateLastChat, setReplyChat, setModalData, setShowModal } = chatSlice.actions;
+export const { getConvoForChat, updateLastChat, setReplyChat, setModalData, setShowModal, addToUserCache } = chatSlice.actions;
 export default chatSlice.reducer

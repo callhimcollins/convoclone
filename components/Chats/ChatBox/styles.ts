@@ -39,8 +39,9 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         replyChatContainer: {
             backgroundColor: appearanceMode.primary, 
             marginTop: 20, 
-            padding: 5, 
-            borderRadius: 10
+            paddingVertical: 5, 
+            paddingHorizontal: 7,
+            borderRadius: 10,
         },
         replyChatTextContainer: {
             flexDirection: 'row', 

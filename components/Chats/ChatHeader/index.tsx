@@ -11,7 +11,7 @@ import { getUserData } from '@/state/features/userSlice'
 import { supabase } from '@/lib/supabase'
 import RemoteImage from '@/components/RemoteImage'
 import { userType } from '@/types'
-import { setShowModal } from '@/state/features/chatSlice'
+import { addToUserCache, setShowModal } from '@/state/features/chatSlice'
 
 const ChatHeader = () => {
   const gesture = Gesture.Pan()
@@ -19,6 +19,7 @@ const ChatHeader = () => {
   const [userData, setUserData] = useState<userType>()
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
+  const userCache = useSelector((state:RootState) => state.chat.userCache)
   const dispatch = useDispatch()
   const styles = getStyles(appearanceMode)
   const router = useRouter()
@@ -28,6 +29,10 @@ const ChatHeader = () => {
   }
 
   const fetchUser = async () => {
+    if(userCache[convoData?.user_id as string]) {
+      setUserData(userCache[convoData?.user_id as string])
+      return;
+    }
     try {
       const { data, error } = await supabase
       .from('Users')
@@ -36,6 +41,7 @@ const ChatHeader = () => {
       .single()
       if(!error) {
         setUserData(data)
+        dispatch(addToUserCache({ [convoData?.user_id as string]: data }))
       }
     } catch (error) {
       console.log(error)
@@ -81,11 +87,10 @@ const ChatHeader = () => {
             <Text numberOfLines={1} ellipsizeMode='tail' style={styles.footerText}>{convoData.convoStarter}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity>
-            <Text>Keep Up</Text>
+          <TouchableOpacity onPress={handleShowModal}>
+            <Feather name="more-vertical" size={26} color={appearanceMode.textColor} />
           </TouchableOpacity>
         </View>
-    
       </View>
     } else {
       return <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'}  intensity={80} style={styles.container}>

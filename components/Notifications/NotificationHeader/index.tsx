@@ -1,4 +1,4 @@
-import { Text } from 'react-native'
+import { Platform, Text, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -13,13 +13,26 @@ const NotificationHeader = () => {
   const numberOfNotifications = useSelector((state: RootState) => state.notifications.numberOfNotifications)
   const styles = getStyles(appearanceMode)
 
-
-  return (
-    <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.container}>
+  const renderHeader = () => {
+    if(Platform.OS === 'android') {
+      return (<View style={styles.container}>
+        { numberOfNotifications === 0 && <Text style={styles.headerText}>No new notifications</Text>}
+        { numberOfNotifications === 1 && <Text style={styles.headerText}>1 new notification</Text>}
+        { numberOfNotifications > 1 && <Text style={styles.headerText}>{numberOfNotifications} new notifications</Text>}
+      </View>)
+    } else {
+      return (<BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.container}>
       { numberOfNotifications === 0 && <Text style={styles.headerText}>No new notifications</Text>}
       { numberOfNotifications === 1 && <Text style={styles.headerText}>1 new notification</Text>}
       { numberOfNotifications > 1 && <Text style={styles.headerText}>{numberOfNotifications} new notifications</Text>}
-    </BlurView>
+    </BlurView>)
+    }
+  }
+
+  return (
+    <>
+      {renderHeader()}
+    </>
   )
 }
 

@@ -4,13 +4,15 @@ import { createSlice } from "@reduxjs/toolkit";
 interface StartConvoStateType {
     files: fileType[],
     fileUploading: boolean,
-    private: boolean
+    private: boolean,
+    dialogue: boolean,
 }
 
 const initialState: StartConvoStateType = {
     files: [],
     fileUploading: false,
-    private: false
+    private: false,
+    dialogue: false,
 }
 
 const startConvoSlice = createSlice({
@@ -28,11 +30,13 @@ const startConvoSlice = createSlice({
         },
         setPrivate: (state, action) => {
             state.private = action.payload
+        },
+        setDialogue: (state, action) => {
+            state.dialogue = action.payload
         }
     }
 });
 
 
-export const { setFiles, emptyFiles, setFileUploading, setPrivate } = startConvoSlice.actions;
+export const { setFiles, emptyFiles, setFileUploading, setPrivate, setDialogue } = startConvoSlice.actions;
 export default startConvoSlice.reducer;
-

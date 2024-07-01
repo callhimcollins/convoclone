@@ -1,5 +1,5 @@
 import { Dimensions, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Gesture, GestureDetector, TextInput } from 'react-native-gesture-handler'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -10,6 +10,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { setReplyChat } from '@/state/features/chatSlice'
+import { openai } from '@/lib/openAIInitializer'
 
 const initialKeyboardWidth = Dimensions.get('window').width * .5
 const ChatFooter = () => {
@@ -26,7 +27,9 @@ const ChatFooter = () => {
   const expansionWidth = useSharedValue(initialKeyboardWidth)
   const { convoID } = useLocalSearchParams()
   const dispatch = useDispatch()
-  const chatData = {
+
+
+  const chatData = useMemo(() => ({
     convo_id: convoID,
     user_id: authenticatedUserData?.user_id,
     content,
@@ -34,7 +37,7 @@ const ChatFooter = () => {
     audio: null,
     userData: authenticatedUserData,
     replyChat,
-  }
+  }), [convoID, authenticatedUserData, content, replyChat])
 
   const notificationDataForReplyChat = {
     sender_id: authenticatedUserData?.user_id,
@@ -49,7 +52,9 @@ const ChatFooter = () => {
     return !text || text.trim() === '';
   }
 
+
   const sendChat = async () => {
+
     if(isContentEmpty(content)) {
       return;
     }
@@ -151,8 +156,9 @@ const ChatFooter = () => {
           }
     }, [convoID, authenticatedUserData])
           
-      const handleKeyPress = () => {
-      }
+    const handleKeyPress = () => {
+      
+    }
 
     useEffect(() => {
       if(!content) {
@@ -165,12 +171,12 @@ const ChatFooter = () => {
     }, [handleKeyPress])
   
   const renderChatFooter = () => {
-    if(Platform.OS === 'android' || appearanceMode.name === 'light') {
+    if(Platform.OS === 'android') {
       return (
-        <View>
+        <KeyboardAvoidingView style={{ position: 'absolute', bottom: 0, width: '100%' }}>
           { replyChat && replyChat.convo_id === convoID && <View style={styles.replyChatContainer}>
             <View style={styles.replyHeaderContainer}>
-              <Text style={styles.replyTextHeader}>Replying to <Text style={styles.replyUsername}>{replyChat.username}</Text></Text>
+              <Text style={styles.replyTextHeader}>Replying to <Text style={styles.replyUsername}>{ replyChat.username.split('-')[0] }</Text></Text>
               <TouchableOpacity onPress={() => dispatch(setReplyChat(null))}>
                 <AntDesign color={appearanceMode.textColor} name='close' size={25}/>
               </TouchableOpacity>
@@ -202,13 +208,13 @@ const ChatFooter = () => {
               <Ionicons name='attach' color={appearanceMode.textColor} size={24} />
             </TouchableOpacity>
           </View>
-      </View>)
+      </KeyboardAvoidingView>)
     } else {
       return (
       <View>
           { replyChat && replyChat.convo_id === convoID && <Animated.View style={styles.replyChatContainer}>
             <View style={styles.replyHeaderContainer}>
-              <Text style={styles.replyTextHeader}>Replying to <Text style={styles.replyUsername}>{ replyChat.username }</Text></Text>
+              <Text style={styles.replyTextHeader}>Replying to <Text style={styles.replyUsername}>{ replyChat.username.split('-')[0] }</Text></Text>
               <TouchableOpacity onPress={() => dispatch(setReplyChat(null))}>
                 <AntDesign color={appearanceMode.textColor} name='close' size={25}/>
               </TouchableOpacity>

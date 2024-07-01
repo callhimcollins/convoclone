@@ -27,7 +27,18 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
         marginLeft: 5
     },
     headerRight: {
-        // flexDirection: 'row'
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
+    dialogueContainer: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 5
+    },
+    dialogueRobot: {
+        width: 30,
+        height: 30,
     },
     contentContainer: {
         paddingHorizontal: 5,

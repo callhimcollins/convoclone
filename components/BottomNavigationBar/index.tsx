@@ -60,7 +60,7 @@ const BottomNavigationBar = () => {
   }
 
   const renderBottomNavigation = () => {
-    if(Platform.OS === 'android' || appearanceMode.name === 'light') {
+    if(Platform.OS === 'android') {
       return (
         <View style={[styles.container, { backgroundColor: appearanceMode.backgroundColor }]}>
         <View style={styles.tabContainer}>

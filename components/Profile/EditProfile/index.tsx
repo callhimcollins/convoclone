@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react'
 import { RootState } from '@/state/store'
 import EditProfileHeader from './EditProfileHeader'
 import RemoteImage from '@/components/RemoteImage'
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
 import { supabase } from '@/lib/supabase'
 import { setAuthenticatedUserData } from '@/state/features/userSlice'
@@ -14,6 +14,9 @@ import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { decode } from 'base64-arraybuffer'
 import { randomUUID } from 'expo-crypto'
+import { Audio } from 'expo-av'
+import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import SystemNotification from '@/components/Notifications/SystemNotifications'
 
 interface SelectedImageType {
     uri: string,
@@ -39,12 +42,27 @@ const EditProfile = () => {
     const [selectedProfileBackground, setSelectedProfileBackground] = useState<SelectedImageType | null>()
     const [passwordMatch, setPasswordMatch] = useState<boolean>(true)
     const [passwordVisible, setPasswordVisible] = useState<boolean>(false)
+    const [recording, setRecording] = useState<any>(false)
+    const [recordingUri, setRecordingUri] = useState('')
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    const [isRecordingState, setIsRecordingState] = useState<boolean>(false)
+    const [isPaused, setIsPaused] = useState(true)
     const inputContainerVisibility = useSharedValue(1)
     const inputContainerPosition = useSharedValue(0)
     const inputVisibility = useSharedValue(0)
     const inputPosition = useSharedValue(0)
     const styles = getStyles(appearanceMode)
     const dispatch = useDispatch()
+    const audioLevels = Array(10).fill(0).map(() => useSharedValue(0.1));
+    const recordContainerHeight = useSharedValue(0)
+    const recordContainerOpacity = useSharedValue(0)
+
+    const recordContainerAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            height: recordContainerHeight.value,
+            opacity: recordContainerOpacity.value
+        }
+    })
 
     const requestPermissions = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -52,6 +70,135 @@ const EditProfile = () => {
             alert('Sorry, we need camera roll permissions to make this work!')
         }
     }
+
+    const onRecordingStatusUpdate = (status: any) => {
+        if (status.metering !== undefined) {
+          const level = Math.min(Math.max((status.metering + 160) / 160, 0), 1);
+          
+          audioLevels.forEach((sharedValue) => {
+            if (Math.random() > 0.5) {
+              const newValue = Math.max(Math.random() * (level + 0.2), 0.1); // Ensure minimum value
+              sharedValue.value = withSpring(newValue, {
+                damping: 10,
+                stiffness: 80,
+              });
+            }
+          });
+        }
+      };
+    
+
+      const startRecording = async () => {
+        try {
+            await Audio.requestPermissionsAsync();
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true
+            });
+
+
+            const { recording } = await Audio.Recording.createAsync(
+                Audio.RecordingOptionsPresets.HIGH_QUALITY,
+                onRecordingStatusUpdate,
+                100 // Update every 100ms
+            );
+            setRecording(recording);
+            setIsRecordingState(true)
+            recordContainerHeight.value = withTiming(50);
+            recordContainerOpacity.value = withTiming(1);
+            // If there's an existing sound, unload it
+            if (sound) {
+                await sound.unloadAsync();
+                setSound(null);
+            }
+        } catch (error) {
+            console.log('Failed To Start Recording', error);
+        }
+    };
+    
+    const stopAndSaveRecording = async () => {
+        if (!recording) return;
+
+        try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            setRecordingUri(uri)
+            setRecording(null);
+
+            recordContainerHeight.value = withTiming(0);
+            recordContainerOpacity.value = withTiming(0);
+
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: false,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: false,
+                playThroughEarpieceAndroid: false,
+            });
+
+            // Create a new sound object with the latest recording
+            const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+            setSound(newSound);
+            setIsPaused(true);
+            setIsRecordingState(false)
+        } catch (error) {
+            console.error("Error stopping the recording:", error);
+        }
+    };
+    
+
+    const playRecording = async () => {
+        try {
+            if (sound) {
+                if (isPaused) {
+                    await sound.playAsync();
+                    sound.setOnPlaybackStatusUpdate(async (status: any) => {
+                        if (status.didJustFinish) {
+                            await sound.setPositionAsync(0);
+                            setIsPaused(true);
+                        }
+                    })
+                } else {
+                    await sound.setPositionAsync(0);
+                    await sound.playAsync();
+                }
+                setIsPaused(false);
+            } else if (recordingUri) {
+                const { sound: newSound } = await Audio.Sound.createAsync(
+                    { uri: recordingUri },
+                    { shouldPlay: true }
+                );
+                setSound(newSound);
+                setIsPaused(false);
+
+                newSound.setOnPlaybackStatusUpdate(async (status: any) => {
+                    if (status.didJustFinish) {
+                        setIsPaused(true);
+                        await newSound.setPositionAsync(0);
+                    }
+                });
+            } else {
+                dispatch(setSystemNotificationState(true));
+                dispatch(setSystemNotificationData({ type: 'error', message: 'Nothing To Play' }));
+            }
+        } catch (error) {
+            dispatch(setSystemNotificationState(true));
+            dispatch(setSystemNotificationData({ type: 'error', message: 'An Error Occurred' }));
+        }
+    };
+    
+    
+    const pauseRecording = async () => {
+        if (sound && !isPaused) {
+            try {
+                await sound.pauseAsync();
+                setIsPaused(true);
+            } catch (error) {
+                console.error("Error pausing the recording:", error);
+            }
+        }
+    };
+
 
     const uploadImage = async () => {
         if(!selectedProfileImage?.uri?.startsWith('file')) {
@@ -369,10 +516,20 @@ const EditProfile = () => {
         setPasswordVisible(!passwordVisible)
     }
 
+    useEffect(() => {
+        return sound
+            ? () => {
+                  sound.unloadAsync();
+              }
+            : undefined;
+    }, [sound]);
+
     return (
         <View style={styles.container}>
             <EditProfileHeader/>
-
+            <View style={styles.notificationContainer}>
+                <SystemNotification/>
+              </View>
             <KeyboardAwareScrollView style={styles.contentContainer}>
                 <View>
                     <View style={styles.profileBackgroundImageContainer}>
@@ -403,18 +560,49 @@ const EditProfile = () => {
                 </View>
 
                 <View style={styles.audioContainer}>
-                    <TouchableOpacity style={styles.playButtonContainer}>
+                   { isPaused &&  <TouchableOpacity onPress={playRecording} style={styles.playButtonContainer}>
                         <View style={styles.playButton}>
                             <Image style={styles.playButtonImage} source={require('@/assets/images/play.png')}/>
                         </View>
 
                         <Text style={styles.playButtonText}>Play Audio Profile</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
+                   { !isPaused &&  <TouchableOpacity onPress={pauseRecording} style={styles.playButtonContainer}>
+                        <View style={styles.playButton}>
+                            <Image style={styles.playButtonImage} source={require('@/assets/images/pause.png')}/>
+                        </View>
 
-                    <TouchableOpacity style={styles.changeAudioProfileButton}>
-                        <Text style={styles.changeAudioProfileButtonText}>Change Audio Profile</Text>
-                    </TouchableOpacity>
+                        <Text style={styles.playButtonText}>Pause Audio Profile</Text>
+                    </TouchableOpacity>}
+
+                    <View style={{ flexDirection: 'row', gap: 5 }}>
+                        <TouchableOpacity onPress={startRecording} style={styles.changeAudioProfileButton}>
+                            <Text style={styles.changeAudioProfileButtonText}>{ isRecordingState ? "Listening..." : "Change Audio Profile" }</Text>
+                        </TouchableOpacity>
+                        { isRecordingState && <TouchableOpacity onPress={stopAndSaveRecording} style={styles.changeAudioProfileButton}>
+                            <Image style={styles.playButtonImage} source={require('@/assets/images/stop.png')}/>
+                        </TouchableOpacity>}
+                    </View>
                 </View>
+
+                <Animated.View style={[styles.visualizer, recordContainerAnimatedStyle]}>
+                    {audioLevels.map((sharedValue, index) => {
+                        const animatedStyle = useAnimatedStyle(() => {
+                        const height = Math.max(sharedValue.value * 50, 5); // Ensure minimum height
+                        return {
+                            height,
+                            backgroundColor: `rgba(98, 95, 224, ${Math.max(sharedValue.value, 0.2)})`,
+                        };
+                        });
+                        return (
+                        <Animated.View
+                            key={index}
+                            entering={FadeIn}
+                            style={[styles.bar, animatedStyle]}
+                        />
+                        );
+                    })}
+                </Animated.View>
 
 
                 <Animated.View  style={[styles.textInputContaniner, animatedInputContainer]}>

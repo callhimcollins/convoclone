@@ -29,7 +29,7 @@ const UrlPreview = ({ url }: { url: string }) => {
     const [metadata, setMetadata] = useState<Metadata | null>(null)
     const [loading, setLoading] = useState(true)
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
-
+    
     useEffect(() => {
         const fetchMetadata = async () => {
           try {
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
       },
       image: {
         width: 100,
-        height: '100%',
+        height: 100,
         borderTopLeftRadius: 8,
         borderBottomLeftRadius: 8,
       },

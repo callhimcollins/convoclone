@@ -21,7 +21,7 @@ const ProfileFeed = (user: userType, chats: chatType) => {
     const { profileID } = useLocalSearchParams()
 
     const checkUserIsBlocked = async () => {
-        const { data, error } = await supabase
+        const { data } = await supabase
         .from('blockedUsers')
         .select('*')
         .eq('blockedUserID', String(userData?.user_id))
@@ -117,6 +117,7 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                         files={convo.item.files} 
                         numberOfKeepUps={convo.item.numberOfKeepUps} 
                         convoStarter={convo.item.convoStarter}
+                        dialogue={convo.item.dialogue}
                         />)}}
                 />}
                 { activeTab === 'Private' && user.convos && userIsInPrivateCircle && <FlatList
@@ -137,6 +138,7 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                         files={convo.item.files} 
                         numberOfKeepUps={convo.item.numberOfKeepUps} 
                         convoStarter={convo.item.convoStarter}
+                        dialogue={convo.item.dialogue}
                         />)}}
                 />}
                 { activeTab === 'Private' && user.convos && authenticatedUserData?.user_id === profileID && <FlatList
@@ -157,6 +159,7 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                         files={convo.item.files} 
                         numberOfKeepUps={convo.item.numberOfKeepUps} 
                         convoStarter={convo.item.convoStarter}
+                        dialogue={convo.item.dialogue}
                         />)}}
                 />}
 
@@ -171,15 +174,17 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                 }
                 { activeTab === 'Convos' && user?.convos?.length === 0 && authenticatedUserData?.user_id !== profileID && 
                     <View style={{ height: 120, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>{user.username} Has No Conversations Yet</Text>
+                        <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>{user.username?.split('-')[0]} Has No Conversations Yet</Text>
                     </View>
                 }
-                { activeTab === 'Private' && user?.convos?.length === 0 && !userIsInPrivateCircle && authenticatedUserData?.user_id !== profileID &&
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{  justifyContent: 'center', alignItems: 'center', paddingBottom: Dimensions.get('window').height / 2.5}}>
+                { activeTab === 'Private' && !userIsInPrivateCircle && authenticatedUserData?.user_id !== profileID &&
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ justifyContent: 'center' }}>
                         <ProfileDetail username={user.username} bio={user.bio} id={user.id}/>
-                        { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/lockdarkmode.png')} style={{ width: 50, height: 50 }}/>}
-                        { appearanceMode.name === 'light' && <Image source={require('@/assets/images/locklightmode.png')} style={{ width: 50, height: 50 }}/>}
-                        <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>You are not in {user.username}'s Private Circle</Text>
+                        <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                            { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/lockdarkmode.png')} style={{ width: 50, height: 50 }}/>}
+                            { appearanceMode.name === 'light' && <Image source={require('@/assets/images/locklightmode.png')} style={{ width: 50, height: 50 }}/>}
+                            <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>You are not in {user.username?.split('-')[0]}'s Private Circle</Text>
+                        </View>
                     </ScrollView>
                 }
                 { activeTab === 'Private' && user?.convos?.length === 0 && !userIsInPrivateCircle && authenticatedUserData?.user_id === profileID &&
@@ -195,15 +200,15 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                         <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}> {user.username} Has No Private Conversations Yet</Text>
                     </ScrollView>
                 }
-                { activeTab === 'Private' && !userIsInPrivateCircle && authenticatedUserData?.user_id !== profileID &&
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ }}>
+                {/* { activeTab === 'Private' && !userIsInPrivateCircle && user.convos?.length !== 0 && authenticatedUserData?.user_id !== profileID &&
+                    <ScrollView showsVerticalScrollIndicator={false}>
                         <ProfileDetail links={user.links} username={user.username} bio={user.bio} id={user.id}/> 
 
                         <View style={{ justifyContent: 'center', alignItems: 'center', paddingBottom: Dimensions.get('window').height / 2.5 }}>
-                            <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>You are not in {user.username}'s Private Circle</Text>
+                            <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold', fontSize: 16 }}>You are not in {user.username?.split('-')[0]}'s Private Circle</Text>
                         </View>                     
                     </ScrollView>
-                }
+                } */}
         </KeyboardAvoidingView>
         )
     }

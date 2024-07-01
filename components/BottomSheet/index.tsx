@@ -12,20 +12,22 @@ import { supabase } from '@/lib/supabase'
 import { router } from 'expo-router'
 import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
 import * as ImagePicker from 'expo-image-picker'
-import { emptyFiles, setFiles, setFileUploading, setPrivate } from '@/state/features/startConvoSlice'
+import { emptyFiles, setDialogue, setFiles, setFileUploading, setPrivate } from '@/state/features/startConvoSlice'
 import { AVPlaybackStatus, AVPlaybackStatusSuccess, ResizeMode, Video } from 'expo-av'
 import * as FileSystem from 'expo-file-system'
 import { randomUUID } from 'expo-crypto'
 import { decode } from 'base64-arraybuffer'
 import { convoType, fileType, userType } from '@/types'
-import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import { setNotificationState, setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import UrlPreview from '../UrlPreview'
 import { useDebounce } from 'use-debounce'
+import { openai } from '@/lib/openAIInitializer'
 
 
 type OnPlaybackStatusUpdate = (status: AVPlaybackStatus) => void;
 const DEVICE_WIDTH = Dimensions.get('window').width;
 const DEVICE_HEIGHT = Dimensions.get('window').height;
+const PICK_ACTION_DATA = ["Sing", "Talk", "Act", "Write"]
 const BottomSheet = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
     const convoStarterState = useSelector((state: RootState) => state.navigation.convoStarter)
@@ -39,7 +41,10 @@ const BottomSheet = () => {
     const [linkURL, setLinkURL] = useState('')
     const [validURL, setValidURL] = useState(false)
     const [linkInputActive, setLinkInputActive] = useState(false)
+    const [selectedAction, setSelectedAction] = useState('')
+    const [dialogueCharacter, setDialogueCharacter] = useState('')
     const privateConvo = useSelector((state:RootState) => state.startConvo.private)
+    const dialogue = useSelector((state:RootState) => state.startConvo.dialogue)
     const [currentPlayingVideoIndex, setCurrentPlayingVideoIndex] = useState<number | null>(null)
     const height = files && files.length > 0 ? DEVICE_HEIGHT * 0.95 : DEVICE_HEIGHT * 0.55
     const styles = getStyles(appearanceMode, height)
@@ -53,15 +58,17 @@ const BottomSheet = () => {
     const widthForLinkButton = useSharedValue(DEVICE_WIDTH * 0.9)
     const videoRefs = useRef<Video[]>([])
     const dispatch = useDispatch()
-    
+    let dialogueConversation = `Dialogue Robot ${selectedAction}s Like ${dialogueCharacter}`
+
     const convoData = {
-        convoStarter,
+        convoStarter: convoStarter === '' ? dialogueConversation : convoStarter,
         user_id: authenticatedUserID,
         userData: authenticatedUserData,
         files: filePaths,
-        location,
         private: privateConvo,
-        link: linkURL
+        link: linkURL,
+        location,
+        dialogue
     }
 
     const animatedStylesForInput = useAnimatedStyle(() => {
@@ -92,6 +99,10 @@ const BottomSheet = () => {
         }
     })
 
+    const pickAction = (action: string) => {
+        setSelectedAction(action)
+    }
+
     const addLinkButton = () => {
         setLinkInputActive(true)
         opacityForLinkInput.value = withTiming(1)
@@ -105,7 +116,7 @@ const BottomSheet = () => {
         return regex.test(linkURL)
     }
 
-    const DEBOUNCE_DELAY = 1000
+    const DEBOUNCE_DELAY = 500
     const [debouncedLinkURL] = useDebounce(linkURL, DEBOUNCE_DELAY)
 
     const handleUrlChange = (text:string) => {
@@ -225,14 +236,72 @@ const BottomSheet = () => {
             
         }
     }
-    
+
+
+      
+
+    const sendChatByRobot = async (convo_id: string, robot:any, robot_id:string) => {
+        const chatCompletion = await openai.chat.completions.create({
+            messages: [{ role: 'system', content: `You Are Dialogue Robot. Perform this role: ${convoData?.convoStarter}. Keep it chat-like and as natural as the role. Use Emojis When Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Keep your words to less than 100 words` }],
+            model: 'gpt-3.5-turbo',
+            max_tokens: 100,
+        })
+        const chatData = {
+            convo_id,
+            user_id: robot_id,
+            content: chatCompletion.choices[0].message.content,
+            files: null,
+            audio: null,
+            userData: robot,
+        }
+
+        const { error, data } = await supabase
+        .from('Chats')
+        .insert(chatData)
+        .eq('convo_id', String(convo_id))
+        .select()
+        if(data) {
+            const { error } = await supabase
+            .from('Convos')
+            .update({lastChat: chatData})
+            .eq('convo_id', String(convo_id))
+            .select()
+            if(error) {
+                console.log("Couldn't update last chat by robot", error.message)
+            }
+        }
+        if(error) {
+            console.log("Couldn't send chat", error.message)
+        }
+    }
+
+    const activateDialogueRobot = async (convo_id:string) => {
+        const robotData = {
+            user_id: convo_id,
+            username: `Dialogue Robot-${convo_id}`,
+            name: `Dialogue Robot`,
+            bio: `I was created to talk in a room: ${dialogueConversation}created by ${authenticatedUserData?.username}`,
+            profileImage: '',
+            isRobot: true
+        }
+
+        const { error } = await supabase
+        .from('Users')
+        .insert(robotData)
+        .single()
+        if(!error) {
+            console.log("Successfully created robot")
+            dispatch(setSystemNotificationState(true))
+            dispatch(setSystemNotificationData({ type: 'neutral', message: 'Please Wait...' }))
+            await sendChatByRobot(convo_id, robotData, robotData.user_id)
+            dispatch(setNotificationState(false))
+        } else {
+            console.log("Robot not created", error.message)
+        }
+    }
 
     const handleConvoStarter = async () => {
-        if(convoStarter === '') {
-            dispatch(setSystemNotificationState(true))
-            dispatch(setSystemNotificationData({ type: 'neutral', message: 'Type or Record A Conversation Starter' }))
-            return;
-        }
+    if(convoStarter !== '' || dialogueCharacter && selectedAction !== '') {
         try {
             const { data, error } = await supabase
             .from('Convos')
@@ -246,8 +315,14 @@ const BottomSheet = () => {
                 setConvoStarter('')
                 setLocation('')
                 if(data.private === true) {
+                    if(data.dialogue === true) {
+                        await activateDialogueRobot(data.convo_id)
+                    }
                     handleSendNotificationToUsersInPrivateCircle(data)
                 } else {
+                    if(data.dialogue === true) {
+                        await activateDialogueRobot(data.convo_id)
+                    }
                     sendNotificationToUsersKeepingUp(data)
                 }
                 if(files.length > 0) {
@@ -281,9 +356,20 @@ const BottomSheet = () => {
         } finally {
 
         }
+        } else {
+            dispatch(setSystemNotificationState(true))
+            dispatch(setSystemNotificationData({ type: 'neutral', message: 'Type or Record A Conversation Starter. No Dialogues Either.' }))
+            return;
+        }
     }
 
-
+    const activateDialogue = async () => {
+        if(dialogue) {
+            dispatch(setDialogue(false))
+        } else {
+            dispatch(setDialogue(true))
+        }
+    }
 
     const uploadFiles = async (convo_id: string) => {
         dispatch(setFileUploading(true))
@@ -396,11 +482,16 @@ const BottomSheet = () => {
     }
 
 
+    const handleCloseBottomSheet = () => {
+        dispatch(toggleConvoStarterButton());
+        dispatch(setDialogue(false));
+        dispatch(setPrivate(false))
+    }
 
     const renderBottomSheet = () => {
         if(Platform.OS === 'android') {
             return <View style={[styles.backgroundContainer, { elevation: 10 }]}>
-            <TouchableOpacity onPress={() => dispatch(toggleConvoStarterButton())} style={styles.close}/>
+            <TouchableOpacity onPress={handleCloseBottomSheet} style={styles.close}/>
             { convoStarterState && 
             <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={[styles.bottomSheetContainer]}>
                 <KeyboardAwareScrollView showsVerticalScrollIndicator={false}>
@@ -408,7 +499,7 @@ const BottomSheet = () => {
                 <View style={styles.header}>
                     <View style={styles.headerInfoContainer}>
                         <Text style={styles.headerText}>What's on your mind today?</Text>
-                        <TouchableOpacity onPress={() => dispatch(toggleConvoStarterButton())}>
+                        <TouchableOpacity onPress={handleCloseBottomSheet}>
                             <Text style={styles.headerText}>Close</Text>
                         </TouchableOpacity>
                     </View>
@@ -417,7 +508,7 @@ const BottomSheet = () => {
                         <TextInput style={styles.locationInput} placeholderTextColor={appearanceMode.faint} placeholder='Location'/>
                     </View>
 
-                    <View style={styles.mainContainer}>
+                    { !dialogue && <View style={styles.mainContainer}>
                         <Animated.View style={[animatedStylesForRecord, { display: convoStarter !== '' ? 'none': 'flex' }]}>
                             <TouchableOpacity style={styles.recordButton}>
                                 <Image source={require('../../assets/images/record.png')} style={styles.iconImage}/>
@@ -426,13 +517,13 @@ const BottomSheet = () => {
                         </Animated.View>
 
                         <Animated.View style={[animatedStylesForInput]}>
-                            <TextInput value={convoStarter} onChangeText={(text) => setConvoStarter(text)} style={styles.mainInput} placeholderTextColor={appearanceMode.faint} placeholder='Type Something...'/>
+                            <TextInput value={convoStarter} placeholderTextColor={appearanceMode.faint} onChangeText={(text) => setConvoStarter(text)} style={styles.mainInput} placeholder='Type Something...'/>
                         </Animated.View>
                         
-                    </View>
+                    </View>}
 
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 }}>
+                    { !dialogue && <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 }}>
                         { !linkInputActive && <Animated.View style={[styles.linkContainer, animatedStylesForLinkButton]}>
                             <TouchableOpacity onPress={addLinkButton} style={styles.addLinkButton}>
                                 <Octicons name='link' color={appearanceMode.secondary} size={20}/>
@@ -441,16 +532,36 @@ const BottomSheet = () => {
                         </Animated.View>}
 
                         { linkInputActive && <Animated.View style={[styles.linkContainer, animatedStylesForLinkInput]}>
-                            <TextInput value={linkURL} onChangeText={(text) => handleUrlChange(text)} style={styles.linkInput} placeholderTextColor={appearanceMode.faint} placeholder='Type/Paste Link'/>
+                            <TextInput value={linkURL} onChangeText={(text) => handleUrlChange(text)} style={styles.linkInput} placeholder='Type/Paste Link'/>
                             <TouchableOpacity>
 
                             </TouchableOpacity>
                         </Animated.View>}
-                    </View>
+                    </View>}
 
                     { !validURL && linkURL !== '' && <Text style={styles.urlInfo}>URL not valid</Text>}
-                    {validURL && linkURL !== '' && <UrlPreview url={`https://${debouncedLinkURL}`}/>
+                    {validURL && linkURL !== '' && !dialogue && <UrlPreview url={`https://${debouncedLinkURL}`}/>
                 }
+
+                    { dialogue && <View>
+                        <Text style={styles.pickRoleText}>Pick An Action</Text>
+                        <ScrollView horizontal={true} contentContainerStyle={{ width: '100%', gap: 10, marginBottom: 20, marginTop: 10 }}>
+                            {PICK_ACTION_DATA.map((action, index) => {
+                                return (
+                                    <TouchableOpacity key={index} onPress={() => pickAction(action)} style={selectedAction === action ? styles.actionButtonSelected : styles.actionButton}>
+                                        <Text style={selectedAction === action ? styles.actionButtonTextSelected : styles.actionButtonText}>{action}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
+                        </ScrollView>
+
+                        <Animated.View style={[animatedStylesForInput, { marginBottom: 15 }]}>
+                            <TextInput value={dialogueCharacter} placeholderTextColor={appearanceMode.faint} onChangeText={(text) => setDialogueCharacter(text)} style={[styles.mainInput, { height: 40 }]} placeholder='Type Character...'/>
+                        </Animated.View>
+
+                        { selectedAction !== '' && dialogueCharacter !== '' && <Text style={styles.dialogueCompletionText}>Dialogue Robot {selectedAction}s Like {dialogueCharacter}</Text>}
+                        { selectedAction !== '' && dialogueCharacter == '' && <Text style={styles.dialogueCompletionText}>Dialogue Robot {selectedAction}s Like Who?</Text>}
+                    </View>}
 
                     <View style={styles.mediaContainer}>
                         <View style={styles.mediaLeft}>
@@ -460,13 +571,27 @@ const BottomSheet = () => {
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity onPress={togglePrivateButton} style={ privateConvo ? styles.privateButtonSelected : styles.privateButton }>
-                            <Text style={styles.privateText}>Private</Text>
-                        </TouchableOpacity>
+                        <View style={styles.specialContainer}>
+                            <TouchableOpacity onPress={togglePrivateButton} style={ privateConvo ? styles.privateButtonSelected : styles.privateButton }>
+                                <Text style={styles.privateText}>Private</Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
+                            { !dialogue && <TouchableOpacity onPress={activateDialogue}>
+                                { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/dialoguerobotinactivedarkmode.png')} style={styles.dialogueRobot}/>}
+                                { appearanceMode.name === 'light' && <Image source={require('@/assets/images/dialoguerobotinactivelightmode.png')} style={styles.dialogueRobot}/>}
+                            </TouchableOpacity>}
+                            { dialogue && <TouchableOpacity onPress={activateDialogue}>
+                                { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/dialoguerobotactivedarkmode.png')} style={styles.dialogueRobot}/>}
+                                { appearanceMode.name === 'light' && <Image source={require('@/assets/images/dialoguerobotactivelightmode.png')} style={styles.dialogueRobot}/>}
+                            </TouchableOpacity>}
+                        </View>
+
+                        { !dialogue && <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
                             <Text style={[styles.startConvoText, linkURL !== '' && { color: validURL ? appearanceMode.primary : appearanceMode.secondary }]}>{ privateConvo ? 'Start Private Convo' : 'Start Convo' }</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity>}
+                        { dialogue && <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
+                            <Text style={[styles.startConvoText, linkURL !== '' && { color: validURL ? appearanceMode.primary : appearanceMode.secondary }]}>{ privateConvo ? 'Start Private Dialogue' : 'Start Dialogue' }</Text>
+                        </TouchableOpacity>}
                     </View>
 
 
@@ -512,7 +637,7 @@ const BottomSheet = () => {
         </View>
         } else {
             return <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.backgroundContainer}>
-            <TouchableOpacity onPress={() => dispatch(toggleConvoStarterButton())} style={styles.close}/>
+            <TouchableOpacity onPress={handleCloseBottomSheet} style={styles.close}/>
             { convoStarterState && 
             <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={[styles.bottomSheetContainer]}>
                 <KeyboardAwareScrollView showsVerticalScrollIndicator={false}>
@@ -520,7 +645,7 @@ const BottomSheet = () => {
                 <View style={styles.header}>
                     <View style={styles.headerInfoContainer}>
                         <Text style={styles.headerText}>What's on your mind today?</Text>
-                        <TouchableOpacity onPress={() => dispatch(toggleConvoStarterButton())}>
+                        <TouchableOpacity onPress={handleCloseBottomSheet}>
                             <Text style={styles.headerText}>Close</Text>
                         </TouchableOpacity>
                     </View>
@@ -529,7 +654,7 @@ const BottomSheet = () => {
                         <TextInput style={styles.locationInput} placeholderTextColor={appearanceMode.faint} placeholder='Location'/>
                     </View>
 
-                    <View style={styles.mainContainer}>
+                    { !dialogue && <View style={styles.mainContainer}>
                         <Animated.View style={[animatedStylesForRecord, { display: convoStarter !== '' ? 'none': 'flex' }]}>
                             <TouchableOpacity style={styles.recordButton}>
                                 <Image source={require('../../assets/images/record.png')} style={styles.iconImage}/>
@@ -538,13 +663,13 @@ const BottomSheet = () => {
                         </Animated.View>
 
                         <Animated.View style={[animatedStylesForInput]}>
-                            <TextInput value={convoStarter} onChangeText={(text) => setConvoStarter(text)} style={styles.mainInput} placeholder='Type Something...'/>
+                            <TextInput value={convoStarter} placeholderTextColor={appearanceMode.faint} onChangeText={(text) => setConvoStarter(text)} style={styles.mainInput} placeholder='Type Something...'/>
                         </Animated.View>
                         
-                    </View>
+                    </View>}
 
 
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 }}>
+                    { !dialogue && <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 }}>
                         { !linkInputActive && <Animated.View style={[styles.linkContainer, animatedStylesForLinkButton]}>
                             <TouchableOpacity onPress={addLinkButton} style={styles.addLinkButton}>
                                 <Octicons name='link' color={appearanceMode.secondary} size={20}/>
@@ -558,11 +683,31 @@ const BottomSheet = () => {
 
                             </TouchableOpacity>
                         </Animated.View>}
-                    </View>
+                    </View>}
 
                     { !validURL && linkURL !== '' && <Text style={styles.urlInfo}>URL not valid</Text>}
-                    {validURL && linkURL !== '' && <UrlPreview url={`https://${debouncedLinkURL}`}/>
+                    {validURL && linkURL !== '' && !dialogue && <UrlPreview url={`https://${debouncedLinkURL}`}/>
                 }
+
+                    { dialogue && <View>
+                        <Text style={styles.pickRoleText}>Pick An Action</Text>
+                        <ScrollView horizontal={true} contentContainerStyle={{ width: '100%', gap: 10, marginBottom: 20, marginTop: 10 }}>
+                            {PICK_ACTION_DATA.map((action, index) => {
+                                return (
+                                    <TouchableOpacity key={index} onPress={() => pickAction(action)} style={selectedAction === action ? styles.actionButtonSelected : styles.actionButton}>
+                                        <Text style={selectedAction === action ? styles.actionButtonTextSelected : styles.actionButtonText}>{action}</Text>
+                                    </TouchableOpacity>
+                                )
+                            })}
+                        </ScrollView>
+
+                        <Animated.View style={[animatedStylesForInput, { marginBottom: 15 }]}>
+                            <TextInput value={dialogueCharacter} placeholderTextColor={appearanceMode.faint} onChangeText={(text) => setDialogueCharacter(text)} style={[styles.mainInput, { height: 40 }]} placeholder='Type Character...'/>
+                        </Animated.View>
+
+                        { selectedAction !== '' && dialogueCharacter !== '' && <Text style={styles.dialogueCompletionText}>Dialogue Robot {selectedAction}s Like {dialogueCharacter}</Text>}
+                        { selectedAction !== '' && dialogueCharacter == '' && <Text style={styles.dialogueCompletionText}>Dialogue Robot {selectedAction}s Like Who?</Text>}
+                    </View>}
 
                     <View style={styles.mediaContainer}>
                         <View style={styles.mediaLeft}>
@@ -572,13 +717,27 @@ const BottomSheet = () => {
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity onPress={togglePrivateButton} style={ privateConvo ? styles.privateButtonSelected : styles.privateButton }>
-                            <Text style={styles.privateText}>Private</Text>
-                        </TouchableOpacity>
+                        <View style={styles.specialContainer}>
+                            <TouchableOpacity onPress={togglePrivateButton} style={ privateConvo ? styles.privateButtonSelected : styles.privateButton }>
+                                <Text style={styles.privateText}>Private</Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
+                            { !dialogue && <TouchableOpacity onPress={activateDialogue}>
+                                { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/dialoguerobotinactivedarkmode.png')} style={styles.dialogueRobot}/>}
+                                { appearanceMode.name === 'light' && <Image source={require('@/assets/images/dialoguerobotinactivelightmode.png')} style={styles.dialogueRobot}/>}
+                            </TouchableOpacity>}
+                            { dialogue && <TouchableOpacity onPress={activateDialogue}>
+                                { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/dialoguerobotactivedarkmode.png')} style={styles.dialogueRobot}/>}
+                                { appearanceMode.name === 'light' && <Image source={require('@/assets/images/dialoguerobotactivelightmode.png')} style={styles.dialogueRobot}/>}
+                            </TouchableOpacity>}
+                        </View>
+
+                        { !dialogue && <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
                             <Text style={[styles.startConvoText, linkURL !== '' && { color: validURL ? appearanceMode.primary : appearanceMode.secondary }]}>{ privateConvo ? 'Start Private Convo' : 'Start Convo' }</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity>}
+                        { dialogue && <TouchableOpacity disabled={linkURL !== '' ? !validURL : validURL} onPress={handleConvoStarter}>
+                            <Text style={[styles.startConvoText, linkURL !== '' && { color: validURL ? appearanceMode.primary : appearanceMode.secondary }]}>{ privateConvo ? 'Start Private Dialogue' : 'Start Dialogue' }</Text>
+                        </TouchableOpacity>}
                     </View>
 
 

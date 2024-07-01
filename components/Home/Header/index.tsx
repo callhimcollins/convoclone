@@ -10,7 +10,7 @@ import { getUserData } from '@/state/features/userSlice'
 import RemoteImage from '@/components/RemoteImage'
 
 
-const Header = (user: userType) => {
+const Header = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
     const authenticatedUserID = useSelector((state: RootState) => state.user.authenticatedUserID)
     const authenticatedUserData = useSelector((state: RootState) => state.user.authenticatedUserData)
@@ -31,8 +31,9 @@ const Header = (user: userType) => {
         if(Platform.OS === 'android') {
             return <View style={[styles.headerContainer, { backgroundColor: appearanceMode.backgroundColor }]}>
                 <View style={styles.contentContainer}>
-                <Image source={require(`@/assets/images/logo.png`)} style={styles.logo}/>
-                <TouchableOpacity onPress={handleNavigation}>
+                    <Image source={require(`@/assets/images/logo.png`)} style={styles.logo}/>
+                    <TouchableOpacity onPress={handleNavigation}>
+                        {/* <RemoteImage path={authenticatedUserData?.profileImage} style={styles.profileImage}/> */}
                         <Image source={require(`@/assets/images/blankprofile.png`)} style={styles.profileImage}/>
                     </TouchableOpacity>
                 </View>

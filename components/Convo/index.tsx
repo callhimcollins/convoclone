@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
 import ExternalInputBox from '../ExternalInputBox'
 import { useRootNavigationState, useRouter } from 'expo-router'
-import { getConvoForChat } from '@/state/features/chatSlice'
+import { addToUserCache, getConvoForChat } from '@/state/features/chatSlice'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import moment from 'moment'
 import { supabase } from '@/lib/supabase'
@@ -44,6 +44,7 @@ const Convo = (convo: convoType) => {
     const videoRefs = useRef<Video[]>([])
     const [currentPlayingVideoIndex, setCurrentPlayingVideoIndex] = useState<number | null>(null)
     const [status, setStatus] = useState<AVPlaybackStatus | null>(null)
+    const userCache = useSelector((state:RootState) => state.chat.userCache)
     const SkeletonCommonProps = {
         colorMode: appearanceMode.name === 'light' ? 'light' : 'dark',
         transition: { type: 'timing', duration: 2000 },
@@ -56,7 +57,7 @@ const Convo = (convo: convoType) => {
         files: null,
         audio: null,
         userData: authenticatedUserData
-    }), [convo, content, authenticatedUserData])
+      }), [convo.convo_id, convo.user_id, content, authenticatedUserData]);
 
     const convoKeepUpData = {
         user_id: authenticatedUserData?.user_id,
@@ -80,6 +81,10 @@ const Convo = (convo: convoType) => {
 
     const fetchUserData = useCallback(async () => {
         try {
+            if(userCache[convo?.user_id as string]) {
+                setUserData(userCache[convo?.user_id as string])
+                return;
+            }
             const { data, error } = await supabase
             .from('Users')
             .select('*')
@@ -87,6 +92,7 @@ const Convo = (convo: convoType) => {
             .single()
             if(!error) {
                 setUserData(data)
+                dispatch(addToUserCache({ [convo.user_id as string]: data} ))
             }
         } catch (error) {
             console.log("error getting user")
@@ -124,6 +130,7 @@ const Convo = (convo: convoType) => {
             (payload:any) => {
                 const newUserId = payload.new?.user_id;
                 if(newUserId && numberOfEngagedUsers.includes(newUserId)) {
+                    console.log("Exists")
                     return;
                 } else {
                     setNumberOfEngagedUsers(prev => [...prev, newUserId])
@@ -172,6 +179,7 @@ const Convo = (convo: convoType) => {
     }, [convo, router, dispatch])
 
     const animatedPopupStyles = useAnimatedStyle(() => {
+        'worklet'
         return {
             width: widthValue.value,
             padding: paddingValuePopup.value,
@@ -289,7 +297,7 @@ const Convo = (convo: convoType) => {
     }
 
     const renderLastChatUsername = useCallback(() => {
-        return lastChat?.userData?.username
+        return lastChat?.userData?.username?.split('-')[0]
     }, [lastChat])
     
     const rightSwipe = useCallback(() => {
@@ -464,6 +472,7 @@ const Convo = (convo: convoType) => {
                             </TouchableOpacity>
                         </Skeleton>
                         <View style={styles.headerRight}>
+                                { convo.dialogue && <Image style={styles.dialogueRobot} source={require('../../assets/images/dialoguerobot.png')}/>}
                             <TouchableOpacity onPress={toggleOptionsVisibility}>
                                 <Feather size={24} color={appearanceMode.textColor} name='more-vertical'/>
                             </TouchableOpacity>
@@ -533,7 +542,7 @@ const Convo = (convo: convoType) => {
                             }
                             { lastChat &&
                                 <TouchableOpacity onPress={handleChatNavigation}>
-                                    <Text style={styles.lastMessage}><Text style={styles.lastMessageUsername}>{renderLastChatUsername()}:</Text> { renderLastChat() } </Text>
+                                    <Text numberOfLines={2} ellipsizeMode='tail' style={styles.lastMessage}><Text style={styles.lastMessageUsername}>{renderLastChatUsername()}:</Text> { renderLastChat() } </Text>
                                 </TouchableOpacity>
                             }
                             { !lastChat && <Text style={[styles.lastMessage, { color: appearanceMode.secondary, fontFamily: 'extrabold' }]}>No Chats In This Room</Text> }

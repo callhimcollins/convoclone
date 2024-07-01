@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, Platform, Text, TouchableOpacity, Dimensions, FlatList } from 'react-native'
+import { StyleSheet, ScrollView, Platform, Text, TouchableOpacity, Dimensions, FlatList, Image, ImageBackground } from 'react-native'
 import React, { memo, useEffect, useMemo, useState } from 'react'
 import { appearanceStateType } from '@/state/features/appearanceSlice'
 import { useDispatch, useSelector } from 'react-redux'
@@ -17,6 +17,9 @@ import { supabase } from '@/lib/supabase'
 import ExperienceCheck from './ExperienceCheck'
 import { router } from 'expo-router'
 import { Skeleton } from 'moti/skeleton'
+import { LinearGradient } from 'expo-linear-gradient'
+import { toggleConvoStarterButton } from '@/state/features/navigationSlice'
+import { setDialogue } from '@/state/features/startConvoSlice'
 
 const DEVICE_HEIGHT = Dimensions.get('window').height
 const PAGE_SIZE = 30
@@ -36,6 +39,11 @@ const Home = () => {
     const styles = getStyles(appearanceMode)
     const highlightsData: highlightsType[] = highlights
     const dispatch = useDispatch()
+
+    const handleStartDialogue = async () => {
+        dispatch(toggleConvoStarterButton())
+        dispatch(setDialogue(true))
+    }
 
     const getAllHighlightUsers = () => {
         setHighlightUsers(highlightsData.map(highlight => highlight.user))
@@ -65,7 +73,8 @@ const Home = () => {
     }
 
     const fromPrivateCircle = async () => {
-        const { data, error } = await supabase
+        try {
+            const { data, error } = await supabase
         .from('privateCircle')
         .select('*')
         .eq('receiver_id', String(authenticatedUserData?.user_id))
@@ -86,6 +95,9 @@ const Home = () => {
             setPrivateConvoListLoading(false)
         } else {
             setPrivateConvoListLoading(false)
+        }
+        } catch (error) {
+            return;
         }
     }
 
@@ -184,7 +196,7 @@ const Home = () => {
                     { privateConvoList.length > 0 && !privateConvoListLoading && <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         {
                             privateConvoList.map((convo, index) => (
-                                <FromPrivate numberOfKeepUps={convo.numberOfKeepUps} convo_id={convo.convo_id}  convoStarter={convo.convoStarter} id={convo.id} key={index} user_id={String(convo.user_id)} />
+                                <FromPrivate dialogue={convo.dialogue} numberOfKeepUps={convo.numberOfKeepUps} convo_id={convo.convo_id}  convoStarter={convo.convoStarter} id={convo.id} key={index} user_id={String(convo.user_id)} />
                             ))
                         }
                     </ScrollView>}
@@ -195,15 +207,28 @@ const Home = () => {
                     }
 
                     {privateConvoListLoading && 
-                    <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 10 }}>
-                        <Skeleton show height={160} width={'96%'}/>
+                    <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 10, backgroundColor: appearanceMode.backgroundColor }}>
+                        <Skeleton colorMode={appearanceMode.name === 'light' ? 'light' : 'dark'} show height={160} width={'96%'}/>
                     </View>                    
                     }
                 </View>
 
-                
+                <View style={styles.dialogueContainer}>
+                    <View style={styles.dialogueHeaderContainer}>
+                        <Image source={require('../../assets/images/dialoguerobot.png')} style={styles.dialogueLogo}/>
+                        <Text style={styles.dialogueHeaderText}>Introducing... Dialogue</Text>
+                    </View>
+
+                    <Text style={styles.dialogueSubText}>Have conversations with People, Friends... And Robots</Text>
+
+                    <TouchableOpacity onPress={handleStartDialogue} style={styles.dialogueButton}>
+                        <Text style={styles.dialogueButtonText}>Start A Dialogue</Text>
+                    </TouchableOpacity>
+                </View>
+
+                            
                 <View style={styles.convoContainer}>
-                    <Text style={styles.locationConvoText}>Conversations close to you</Text>
+                    {/* <Text style={styles.locationConvoText}>Conversations close to you</Text> */}
                     
                     { !loading && <FlatList
                         style={{ backgroundColor: appearanceMode.backgroundColor }}
@@ -224,6 +249,7 @@ const Home = () => {
                             convoStarter={item.convoStarter} 
                             activeInRoom={item.activeInRoom} 
                             key={index}
+                            dialogue={item.dialogue}
                             />
                         )}
                         onEndReached={fetchMore}
@@ -231,7 +257,7 @@ const Home = () => {
                     />}
 
                     { loading && 
-                    <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: appearanceMode.backgroundColor }}>
                         <Skeleton show height={180} width={'96%'}/>
                     </View>
                     }
@@ -320,7 +346,44 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             zIndex: 200, 
             borderRadius: 10
         },
-
+        dialogueContainer: {
+            borderWidth: 1,
+            borderColor: appearanceMode.primary,
+            margin: 10,
+            padding: 10,
+            borderRadius: 10
+        },
+        dialogueHeaderContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+        },
+        dialogueLogo: {
+            width: 30,
+            height: 30
+        },
+        dialogueHeaderText: {
+            color: 'white',
+            fontFamily: 'extrabold',
+            fontSize: 16,
+        },
+        dialogueSubText: {
+            color: 'white',
+            fontFamily: 'extrabold',
+            fontSize: 13,
+            marginVertical: 10
+        },
+        dialogueButton: {
+            backgroundColor: appearanceMode.primary,
+            padding: 10,
+            borderRadius: 7,
+            justifyContent: 'center',
+            alignItems: 'center'
+        },
+        dialogueButtonText: {
+            color: 'white',
+            fontFamily: 'extrabold',
+        }
     })
 }
 {/* <TouchableOpacity disabled={endReached} onPress={fetchMore} style={[styles.viewMoreButton, { backgroundColor: endReached ? appearanceMode.secondary : appearanceMode.primary }]}>

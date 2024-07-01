@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import * as FileSystem from 'expo-file-system';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/state/store';
-
+import { VisibilityAwareView } from 'react-native-visibility-aware-view'
 type RemoteVideoProps = {
   path?: string | null;
 } & Omit<ComponentProps<typeof Video>, 'source'>;
@@ -46,7 +46,11 @@ const RemoteVideo = forwardRef(({ path, ...videoProps }: RemoteVideoProps, ref:a
     downloadFile(path);
   }, [path]);
 
-  return videoSource ? <Video shouldPlay={videoIsVisible} isLooping ref={ref} source={videoSource} {...videoProps} /> : null;
+  return videoSource ?
+  <VisibilityAwareView onBecomeVisible={() => console.log("It's visible")}>
+    <Video shouldPlay={videoIsVisible} isLooping ref={ref} source={videoSource} {...videoProps} />
+  </VisibilityAwareView>
+   : null;
 });
 
 export default RemoteVideo;

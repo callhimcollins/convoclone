@@ -28,7 +28,7 @@ const Chats = () => {
   const dispatch = useDispatch()
   const animatedPopUpStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateY: popUpVisibility.value }]
+      transform: [{ translateY: popUpVisibility.value+50 }]
     }
   })
 

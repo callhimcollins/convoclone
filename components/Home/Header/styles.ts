@@ -5,7 +5,7 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
     return StyleSheet.create({
         headerContainer: {
             position: 'absolute',
-            backgroundColor: Platform.OS === 'ios' ? ( appearanceMode.name === 'dark' ? appearanceMode.backgroundTransparent : appearanceMode.backgroundColor) : appearanceMode.backgroundColor,
+            backgroundColor: Platform.OS === 'ios' ? appearanceMode.backgroundTransparent : appearanceMode.backgroundColor,
             width: '100%',
             paddingTop: 45,
             paddingBottom: 10,

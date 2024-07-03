@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Provider } from 'react-redux';
 import { store } from '@/state/store';
+import { registerForPushNotificationsAsync, sendPushNotification } from '@/pushNotifications';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -50,6 +51,7 @@ export default function RootLayout() {
 
   return <RootLayoutNav />;
 }
+
 
 
 function RootLayoutNav() {

@@ -16,64 +16,8 @@ import NotificationPopUp from '@/components/Notifications/NotificationPopUp'
 import { setNotificationData, setNumberOfNotifications } from '@/state/features/notificationSlice'
 import SystemNotification from '@/components/Notifications/SystemNotifications'
 import * as ExternalNotifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import OpenAI from 'openai'
-ExternalNotifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true
-    })
-})
+import { registerForPushNotificationsAsync } from '@/pushNotifications'
 
-
-
-async function sendPushNotification(expoPushToken: string) {
-    const message = {
-        to: expoPushToken,
-        sound: 'default',
-        title: 'Original Title',
-        body: 'And here is the body!',
-        data: { someData: 'goes here' },
-    };
-
-    await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'Accept-encoding': 'gzip, deflate',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(message),
-    });
-}
-
-async function registerForPushNotificationsAsync() {
-    let token;
-    if(Platform.OS === 'android') {
-        ExternalNotifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: ExternalNotifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-        })
-    }
-
-    if(Device.isDevice) {
-        const { status: existingStatus } = await ExternalNotifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if(existingStatus !== 'granted') {
-            const { status } = await ExternalNotifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-
-        if(finalStatus !== 'granted') {
-            alert('Failed to get push token for push notification!');
-            return;
-        }
-    }
-} 
 
 
 const TabLayoutScreen = (session: Session) => {
@@ -81,36 +25,9 @@ const TabLayoutScreen = (session: Session) => {
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const convoStarterStater = useSelector((state:RootState) => state.navigation.convoStarter)
   const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
-  const [expoPushToken, setExpoPushToken] = useState('');
-  const [notification, setNotification] = useState<ExternalNotifications.Notification | undefined>(undefined);
-  const notificationListener = useRef<ExternalNotifications.Subscription>();
-  const responseListener = useRef<ExternalNotifications.Subscription>();
   const sessionChecked = useRef(false)
   const dispatch = useDispatch()
   let timeoutID: Number | undefined;
-
-
-  useEffect(() => {
-    registerForPushNotificationsAsync()
-      .then((token:any) => setExpoPushToken(token ?? ''))
-      .catch((error: any) => setExpoPushToken(`${error}`));
-
-    notificationListener.current = ExternalNotifications.addNotificationReceivedListener(notification => {
-      setNotification(notification);
-    });
-
-    responseListener.current = ExternalNotifications.addNotificationResponseReceivedListener(response => {
-      console.log(response);
-    });
-
-    return () => {
-      notificationListener.current &&
-        ExternalNotifications.removeNotificationSubscription(notificationListener.current);
-      responseListener.current &&
-        ExternalNotifications.removeNotificationSubscription(responseListener.current);
-    };
-  }, []);
-
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -257,14 +174,14 @@ const TabLayoutScreen = (session: Session) => {
     authChanged()
   }, [])
   
-  // useEffect(() => {
-    //   registerForPushNotificationsAsync()
-    // }, [])
     
     useEffect(() => {
       checkForNotifications()
     }, [authenticatedUserData?.user_id])
 
+    useEffect(() => {
+      registerForPushNotificationsAsync(String(authenticatedUserData?.user_id));
+    }, [])
     
     return (
       <View style={[styles.container, { backgroundColor: appearanceMode.backgroundColor }]}>

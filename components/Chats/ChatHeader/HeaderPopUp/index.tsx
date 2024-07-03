@@ -10,6 +10,7 @@ import { setSystemNotificationData, setSystemNotificationState } from '@/state/f
 import { supabase } from '@/lib/supabase'
 import { userType } from '@/types'
 import { addToUserCache } from '@/state/features/chatSlice'
+import { sendPushNotification } from '@/pushNotifications'
 
 
 const images = ["https://www.rollingstone.com/wp-content/uploads/2024/06/kendrick-lamar-not-like-us.jpg?w=1581&h=1054&crop=1", "https://image-cdn.hypb.st/https%3A%2F%2Fhypebeast.com%2Fimage%2F2024%2F06%2F20%2Fkendrick-lamar-the-pop-out-1.jpg?cbr=1&q=90", "https://img.buzzfeed.com/buzzfeed-static/complex/images/kiao5opbibefbkhqcyab/kendrick-lamar-the-heart-part-5.jpg?output-format=jpg&output-quality=auto", "https://www.rollingstone.com/wp-content/uploads/2024/06/kendrick-lamar-not-like-us.jpg?w=1581&h=1054&crop=1", "https://image-cdn.hypb.st/https%3A%2F%2Fhypebeast.com%2Fimage%2F2024%2F06%2F20%2Fkendrick-lamar-the-pop-out-1.jpg?cbr=1&q=90",  ]
@@ -106,6 +107,14 @@ const HeaderPopUp = () => {
                 .single()
                 if(!insertError) {
                     console.log("Notification sent successfully")
+                    const { data } = await supabase
+                    .from('Users')
+                    .select('pushToken')
+                    .eq('user_id', String(convo.user_id))
+                    .single()
+                    if(data) {
+                        sendPushNotification(data.pushToken, 'Keep Up', `${authenticatedUserData?.username} started keeping up with your Convo: ${convo?.convoStarter}`)
+                    }
                 }
             }
             

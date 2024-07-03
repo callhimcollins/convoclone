@@ -13,6 +13,7 @@ import RemoteImage from '@/components/RemoteImage'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { sendPushNotification } from '@/pushNotifications'
 
 const DEVICE_WIDTH = Dimensions.get('window').width
 const ProfileDetail = ( user:userType) => {
@@ -212,6 +213,15 @@ const ProfileDetail = ( user:userType) => {
                 .single()
                 if(!error) {
                     console.log("Notification sent successfully")
+                    const { data } = await supabase
+                    .from('Users')
+                    .select('pushToken')
+                    .eq('user_id', userData?.user_id)
+                    .single()
+
+                    if(data) {
+                        sendPushNotification(data.pushToken, "Keep Up", `${authenticatedUserData?.username} started keeping up with you`)
+                    }
                 } else {
                     console.log("Couldn't send notification", error.message)
                 }

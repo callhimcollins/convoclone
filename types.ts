@@ -12,7 +12,8 @@ export type userType = {
     lastUpdated?: string,
     backgroundProfileImage?: string
     links?: Array<linkType>,
-    isRobot?: boolean
+    isRobot?: boolean,
+    pushToken?: string
 }
 
 export type blockedUserType = {
@@ -150,6 +151,13 @@ export type fileType = {
     height?: number;
     duration?: number;
     fileUploading?: boolean
+}
+
+export type pushNotificationType = {
+    expoPushToken: string,
+    title: string,
+    body: string
+    extraData?: any
 }
 
 // l5Q69FWCl3tsY4jM

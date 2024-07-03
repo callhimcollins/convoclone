@@ -22,6 +22,7 @@ import { setNotificationState, setSystemNotificationData, setSystemNotificationS
 import UrlPreview from '../UrlPreview'
 import { useDebounce } from 'use-debounce'
 import { openai } from '@/lib/openAIInitializer'
+import { sendPushNotification } from '@/pushNotifications'
 
 
 type OnPlaybackStatusUpdate = (status: AVPlaybackStatus) => void;
@@ -165,7 +166,7 @@ const BottomSheet = () => {
                     type: 'convoforuserskeepingup',
                     data: convoData
                 }));
-    
+                console.log(data)
                 // Batch insert notifications
                 const { error: insertError } = await supabase
                     .from('notifications')
@@ -175,6 +176,16 @@ const BottomSheet = () => {
                     console.log("Error sending notifications:", insertError.message);
                 } else {
                     console.log(`${notifications.length} notifications sent successfully`);
+                    const userIdsToGet = data?.map(user => user.user_id);
+                    const { data:userData } = await supabase
+                    .from('Users')
+                    .select('*')
+                    .in('user_id', userIdsToGet)
+                    if(userData){
+                        userData.map((user:userType) => {
+                            sendPushNotification(String(user?.pushToken), `${authenticatedUserData?.username} started a ${dialogue ? 'Dialogue' : 'Convo'}`, dialogue ? dialogueConversation : convoStarter)
+                        })
+                    }
                 }
             } else {
                 console.log("No users found to send notifications");
@@ -195,8 +206,9 @@ const BottomSheet = () => {
             .eq('status', 'accepted')
             .eq('senderIsBlocked', false)
             if(data) {
-                data.map((user) => {
-                    sendNotificationToUsersInPrivateCircle(user.receiver_id, convoData)
+                data.map((privateData) => {
+                    sendNotificationToUsersInPrivateCircle(privateData.receiver_id, convoData)
+                    sendPushNotification(String(privateData.senderUserData.pushToken), `${authenticatedUserData?.username} started a Private ${dialogue ? 'Dialogue' : 'Convo'}`, dialogue ? dialogueConversation : convoStarter)
                 })
             }
             const { data: data2, error:error2 } = await supabase
@@ -207,8 +219,9 @@ const BottomSheet = () => {
             .eq('status', 'accepted')
             .eq('senderIsBlocked', false)
             if(data2) {
-                data2.map((user) => {
-                    sendNotificationToUsersInPrivateCircle(user.sender_id, convoData)
+                data2.map((privateData) => {
+                    sendNotificationToUsersInPrivateCircle(privateData.sender_id, convoData)
+                    sendPushNotification(String(privateData.senderUserData.pushToken), `${authenticatedUserData?.username} started a Private ${dialogue ? 'Dialogue' : 'Convo'}`, dialogue ? dialogueConversation : convoStarter)
                 })
             }
         } catch (error) {
@@ -280,7 +293,7 @@ const BottomSheet = () => {
             user_id: convo_id,
             username: `Dialogue Robot-${convo_id}`,
             name: `Dialogue Robot`,
-            bio: `I was created to talk in a room: ${dialogueConversation}created by ${authenticatedUserData?.username}`,
+            bio: `I was created to talk in a room: ${dialogueConversation} created by ${authenticatedUserData?.username}`,
             profileImage: '',
             isRobot: true
         }

@@ -26,16 +26,19 @@ const RequestOthersToJoinCircle = () => {
         .neq('user_id', String(authenticatedUserData?.user_id))
         .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
         if(data) {
-            setUserList(data.map(user => ({
-                id: user.id,
-                user_id: user.user_id,
-                name: user.name,
-                username: user.username,
-                email: user.email,
-                profileImage: user.profileImage,
-                bio: user.bio,
-                audio: user.audio,
-            })))
+            setUserList(prevList => [
+                ...(prevList || []),
+                ...data.map(user => ({
+                    id: user.id,
+                    user_id: user.user_id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    profileImage: user.profileImage,
+                    bio: user.bio,
+                    audio: user.audio,
+                }))
+            ])
         }
         if(error) {
             console.log("Error fetching users from reqeust others to join circle", error.message)
@@ -72,13 +75,15 @@ const RequestOthersToJoinCircle = () => {
         return !text || text.trim() === '';
       }
 
-    const fetchMoreUsers = () => {
-        setCurrentPage(prevPage => prevPage + 1)
+      const fetchMoreUsers = () => {
+        if (userList && userList.length >= currentPage * PAGE_SIZE) {
+            setCurrentPage(prevPage => prevPage + 1)
+        }
     }
 
     useEffect(() => {
         getUsers()
-    }, [])
+    }, [currentPage])
 
 
     useEffect(() => {
@@ -112,6 +117,7 @@ const RequestOthersToJoinCircle = () => {
                 keyExtractor={(item) => item.id.toString()}
                 onEndReached={fetchMoreUsers}
                 onEndReachedThreshold={0.5}
+                showsVerticalScrollIndicator={false}
             />}
             { content && <FlatList
                 data={userListBySearch}
@@ -120,6 +126,7 @@ const RequestOthersToJoinCircle = () => {
                 keyExtractor={(item) => item.id.toString()}
                 onEndReached={fetchMoreUsers}
                 onEndReachedThreshold={0.5}
+                showsVerticalScrollIndicator={false}
             />}
         </View>
     )

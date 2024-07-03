@@ -4,7 +4,10 @@ import { appearanceStateType } from "@/state/features/appearanceSlice";
 const getStyles = (appearanceMode: appearanceStateType) => {
     return StyleSheet.create({
         container: {
-            flex: 1
+            flex: 1,
+            backgroundColor: appearanceMode.backgroundColor,
+            width: '100%',
+            
         },
         header: {
             backgroundColor: Platform.OS === 'android' ? appearanceMode.backgroundColor : appearanceMode.backgroundTransparent,

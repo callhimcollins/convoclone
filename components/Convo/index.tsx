@@ -20,6 +20,7 @@ import { BlurView } from 'expo-blur'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import UrlPreview from '../UrlPreview'
 import { Skeleton } from 'moti/skeleton'
+import { sendPushNotification } from '@/pushNotifications'
 
 type OnPlaybackStatusUpdate = (status: AVPlaybackStatus) => void;
 
@@ -391,7 +392,15 @@ const Convo = (convo: convoType) => {
                 .insert([notificationForKeepUp])
                 .single()
                 if(!insertError) {
-                    console.log("Notification sent successfully")
+                    console.log("Notification sent successfully") 
+                    const { data } = await supabase
+                    .from('Users')
+                    .select('pushToken')
+                    .eq('user_id', convo?.user_id)
+                    .single()
+                    if(data) {
+                        sendPushNotification(data.pushToken, 'Keep Up', `${authenticatedUserData?.username} started keeping up with your Convo: ${convo.convoStarter}`)
+                    }
                 }
             }
 

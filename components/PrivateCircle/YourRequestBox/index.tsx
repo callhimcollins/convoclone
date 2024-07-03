@@ -53,7 +53,7 @@ const YourRequestBox = ({receiverUserData, receiver_id, id}:privateCircleType) =
         <TouchableOpacity onPress={handleNavigationToProfile} style={styles.container}>
             <View style={styles.left}>
                 <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-                <Text style={styles.username}>{receiverUserData.username}</Text>
+                <Text style={styles.username}>{receiverUserData.username?.split('-')[0]}</Text>
             </View>
             <TouchableOpacity style={styles.cancelButton} onPress={cancelRequestForPrivateCircle}>
                 <Text style={styles.cancelButtonText}>Cancel Request</Text>

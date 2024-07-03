@@ -84,7 +84,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity onPress={handleReplyChatNavigation} style={styles.body}>
                     <View style={styles.header}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.data.userData.username }</Text> replied to your chat in <Text style={styles.convoRoom}>{ notificationData?.convo.convoStarter }</Text></Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.data?.userData.username }</Text> replied to your chat in <Text style={styles.convoRoom}>{ notificationData?.convo.convoStarter }</Text></Text>
                     </View>
 
                     <View style={{ backgroundColor: 'rgba(98, 95, 224, 0.2)', padding: 5, marginTop: 15, borderRadius: 5, marginHorizontal: 15 }}>
@@ -92,7 +92,7 @@ const NotificationPopUp = () => {
                     </View>
 
                     <View style={styles.contentContainer}>
-                        <Text style={styles.content}>{notificationData?.data.content}</Text>
+                        <Text style={styles.content}>{notificationData?.data?.content}</Text>
                     </View>
                 </TouchableOpacity>
             )
@@ -101,7 +101,7 @@ const NotificationPopUp = () => {
             <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={styles.body}>
                 <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                     <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                    <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> started keeping up with your Convo: <Text style={styles.convoRoom}>{ notificationData?.convo.convoStarter }</Text></Text>
+                    <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> started keeping up with your {notificationData.convo?.dialogue ? 'Dialogue' : 'Convo'}: <Text style={styles.convoRoom}>{ notificationData.convo?.convoStarter }</Text></Text>
                 </View>
             </TouchableOpacity>)
         } else if(notificationData?.type === 'privatecircle') {
@@ -110,7 +110,7 @@ const NotificationPopUp = () => {
                 <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }}>Private</Text>
                 <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                     <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                    <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> is requesting to join your private circle</Text>
+                    <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> is requesting to join your private circle</Text>
                 </View>
             </TouchableOpacity>
             )
@@ -119,7 +119,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={styles.body}>
                     <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}>You are now a part of <Text style={styles.username}>{ notificationData?.senderUserData.username }</Text>'s Private Circle</Text>
+                        <Text style={styles.headerText}>You are now a part of <Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text>'s Private Circle</Text>
                     </View>
                 </TouchableOpacity>
             )
@@ -128,7 +128,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={styles.body}>
                     <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> started keeping up with you</Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> started keeping up with you</Text>
                     </View>
                 </TouchableOpacity>
             )
@@ -137,7 +137,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={[styles.body]}>
                     <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> is inviting you to join their private circle</Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> is inviting you to join their private circle</Text>
                     </View>
                 </TouchableOpacity>
             )
@@ -146,7 +146,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={[styles.body]}>
                     <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> accepted your invite</Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> accepted your invite</Text>
                     </View>
                 </TouchableOpacity>
             )
@@ -155,7 +155,7 @@ const NotificationPopUp = () => {
                 <TouchableOpacity style={[styles.body]}>
                     { notificationData.senderUserData && <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> started a convo: <Text style={styles.convoRoom}>{ notificationData?.data.convoStarter }</Text></Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> started a {notificationData?.data?.dialogue ? 'Dialogue' : 'Convo'}: <Text style={styles.convoRoom}>{ notificationData?.data?.convoStarter }</Text></Text>
                     </View>}
                 </TouchableOpacity>
             )

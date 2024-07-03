@@ -11,7 +11,7 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
             paddingBottom: 10,
             paddingHorizontal: 20,
             overflow: 'hidden',
-            zIndex: 100,
+            zIndex: 300,
             flexDirection: 'row'
         },
         contentContainer: {

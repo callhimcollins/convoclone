@@ -100,11 +100,11 @@ const InYourCircle = ({receiver_id, sender_id, senderUserData, receiverUserData,
 
       { type === 'requesttojoin' && <View style={styles.contentContainer}>
         <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-        <Text style={styles.username}>{senderUserData.username}</Text>
+        <Text style={styles.username}>{senderUserData.username?.split('-')[0]}</Text>
       </View>}
       { type === 'invite' && <View style={styles.contentContainer}>
         <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-        <Text style={styles.username}>{receiverUserData.username}</Text>
+        <Text style={styles.username}>{receiverUserData.username?.split('-')[0]}</Text>
       </View>}
         <TouchableOpacity style={styles.kickOutOfCircleButton} onPress={kickUserOutOfCircle}>
           <Text style={styles.kickOutOfCircleText}>Kick Out Of Your Circle</Text>

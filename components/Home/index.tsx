@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, Platform, Text, TouchableOpacity, Dimensions, FlatList, Image, ImageBackground } from 'react-native'
+import { StyleSheet, ScrollView, Platform, Text, TouchableOpacity, Dimensions, FlatList, Image, ImageBackground, Button } from 'react-native'
 import React, { memo, useEffect, useMemo, useState } from 'react'
 import { appearanceStateType } from '@/state/features/appearanceSlice'
 import { useDispatch, useSelector } from 'react-redux'
@@ -20,6 +20,7 @@ import { Skeleton } from 'moti/skeleton'
 import { LinearGradient } from 'expo-linear-gradient'
 import { toggleConvoStarterButton } from '@/state/features/navigationSlice'
 import { setDialogue } from '@/state/features/startConvoSlice'
+import { sendPushNotification } from '@/pushNotifications'
 
 const DEVICE_HEIGHT = Dimensions.get('window').height
 const PAGE_SIZE = 30
@@ -175,7 +176,7 @@ const Home = () => {
 
     return (
         <View style={styles.container}>
-            <Header id={user.id} profileImage={user.profileImage}/>
+            <Header/>
             
             <KeyboardAwareScrollView contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 90 : 100 }} extraScrollHeight={Platform.select({ android: 210 })} enableOnAndroid={true} showsVerticalScrollIndicator={false}>
                 { experienceCheckState && <ExperienceCheck/>}
@@ -225,11 +226,8 @@ const Home = () => {
                         <Text style={styles.dialogueButtonText}>Start A Dialogue</Text>
                     </TouchableOpacity>
                 </View>
-
-                            
                 <View style={styles.convoContainer}>
                     {/* <Text style={styles.locationConvoText}>Conversations close to you</Text> */}
-                    
                     { !loading && <FlatList
                         style={{ backgroundColor: appearanceMode.backgroundColor }}
                         data={convos}
@@ -351,9 +349,11 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             borderColor: appearanceMode.primary,
             margin: 10,
             padding: 10,
-            borderRadius: 10
+            borderRadius: 10,
+            backgroundColor: 'black'
         },
         dialogueHeaderContainer: {
+            backgroundColor: 'black',
             flexDirection: 'row',
             alignItems: 'center',
             gap: 10,

@@ -23,7 +23,9 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         username: {
             fontFamily: 'bold', 
             color: appearanceMode.textColor, 
-            marginLeft: 10
+            marginLeft: 10,
+            width: '55%',
+            flexWrap: 'wrap'
         },
         cancelButton: {
             backgroundColor: 'rgba(227, 54, 41, 0.3)',

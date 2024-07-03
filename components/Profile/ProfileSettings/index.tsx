@@ -10,6 +10,7 @@ import { getUserData, setAuthenticatedUserData, setAuthenticatedUserID } from '@
 import { getDefaultAppearance, setAppearance, setDefaultAppearance } from '@/state/features/appearanceSlice'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import { sendPushNotification } from '@/pushNotifications'
 
 const ProfileSettings = () => {
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
@@ -218,6 +219,15 @@ const ProfileSettings = () => {
 
             if(!error) {
                 console.log("Request notification sent")
+                const { data } = await supabase
+                .from('Users')
+                .select('pushToken')
+                .eq('user_id', String(userData?.user_id))
+                .single()
+
+                if(data) {
+                    sendPushNotification(data.pushToken, "Private", `${authenticatedUserData?.username} is requesting to join your Private Circle`)
+                }
             } else {
                 console.log("Problem sending notification")
             }
@@ -236,13 +246,7 @@ const ProfileSettings = () => {
         .eq('receiver_id', String(userData?.user_id))
         .single()
 
-        const { data: data2 } = await supabase
-        .from('privateCircle')
-        .select('*')
-        .eq('sender_id', String(userData?.user_id))
-        .eq('receiver_id', String(authenticatedUserData?.user_id))
-        .single()
-        if(data || data2) {
+        if(data) {
             console.log("Request sent earlier")
         } else {
             const { data, error } = await supabase

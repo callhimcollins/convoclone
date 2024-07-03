@@ -11,6 +11,7 @@ import { useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { setReplyChat } from '@/state/features/chatSlice'
 import { openai } from '@/lib/openAIInitializer'
+import { sendPushNotification } from '@/pushNotifications'
 
 const initialKeyboardWidth = Dimensions.get('window').width * .5
 const ChatFooter = () => {
@@ -97,7 +98,14 @@ const ChatFooter = () => {
         .insert([notificationDataForReplyChat])
         .single()
         if(!error) {
-  
+          const { data } = await supabase
+          .from('Users')
+          .select('pushToken')
+          .eq('user_id', replyChat.user_id)
+          .single()
+          if(data) {
+            sendPushNotification(String(data.pushToken), `${authenticatedUserData?.username} replied to your chat in: ${convoData.convoStarter}`, content)
+          }
         } else {
           console.log("Send notification error", error.message)
         }

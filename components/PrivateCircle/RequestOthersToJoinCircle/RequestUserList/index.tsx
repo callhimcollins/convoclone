@@ -1,4 +1,4 @@
-import { Text, View, Image, TouchableOpacity } from 'react-native'
+import { Text, View, Image, TouchableOpacity, Dimensions } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -8,6 +8,7 @@ import { FontAwesome } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
 import { router } from 'expo-router'
+import { sendPushNotification } from '@/pushNotifications'
 
 const RequestUserList = (user: userType) => {
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
@@ -87,6 +88,14 @@ const RequestUserList = (user: userType) => {
             .single()
             if(!error) {
                 console.log("Request notification sent")
+                const { data } = await supabase
+                .from('Users')
+                .select('pushToken')
+                .eq('user_id', user.user_id)
+                .single()
+                if(data) {
+                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} is inviting you to join their Private Circle`)
+                }
             } else {
                 console.log("Problem sending notification")
             }
@@ -135,23 +144,26 @@ const RequestUserList = (user: userType) => {
     }, [])
 
     return (
-        <TouchableOpacity onPress={handleNavigateToProfile} style={{ padding: 15, flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: .5, borderBottomColor: appearanceMode.faint }}>
+        <View style={{ backgroundColor: appearanceMode.backgroundColor, width: Dimensions.get('window').width}}>
+            <TouchableOpacity onPress={handleNavigateToProfile} style={{ padding: 15, flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: .5, borderBottomColor: appearanceMode.faint }}>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Image style={{ width: 50, height: 50, borderRadius: 10 }} source={require('@/assets/images/blankprofile.png')}/>
-                <Text style={{ color: 'white', marginLeft: 10, fontFamily: 'bold' }}>{user.username}</Text>
-            </View>
-
-            { !sentOrAcceptedToPrivateCircle && !userIsBlocked && <TouchableOpacity onPress={sendInviteToPrivateCircle} style={{ backgroundColor: appearanceMode.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, borderRadius: 10 }}>
-                <FontAwesome name='paper-plane' color={'white'} size={24}/>
-            </TouchableOpacity>}
-
-            { userIsBlocked && 
-                <View style={{ justifyContent: 'center', alignItems: 'center'  }}>
-                    <Image style={{ width: 45, height: 45, borderRadius: 10 }} source={require('@/assets/images/alreadyblocked.png')}/>
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: '80%' }}>
+                    <Image style={{ width: 50, height: 50, borderRadius: 10 }} source={require('@/assets/images/blankprofile.png')}/>
+                    <Text style={{ color: 'white', marginLeft: 10, fontFamily: 'bold', flexWrap: 'wrap' }}>{user.username?.split('-')[0]}</Text>
                 </View>
-                }
-        </TouchableOpacity>
+
+                { !sentOrAcceptedToPrivateCircle && !userIsBlocked && <TouchableOpacity onPress={sendInviteToPrivateCircle} style={{ backgroundColor: appearanceMode.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, borderRadius: 10 }}>
+                    <FontAwesome name='paper-plane' color={'white'} size={24}/>
+                </TouchableOpacity>}
+
+                { userIsBlocked && 
+                    <View style={{ justifyContent: 'center', alignItems: 'center'  }}>
+                        <Image style={{ width: 45, height: 45, borderRadius: 10 }} source={require('@/assets/images/alreadyblocked.png')}/>
+                    </View>
+                    }
+            </TouchableOpacity>
+        </View>
+
     )
 }
 

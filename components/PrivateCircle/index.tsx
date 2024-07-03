@@ -55,13 +55,12 @@ const PrivateCircle = () => {
     }
 
     const getPeopleInYourPendingRequests = async () => {
-        const { data, error } = await supabase
+        const { data } = await supabase
         .from('privateCircle')
         .select('*')
-        .eq('sender_id', String(authenticatedUserData?.user_id))
+        .eq('sender_id', authenticatedUserData?.user_id)
         .eq('senderIsBlocked', false)
         .eq('status', 'pending')
-
         if(data) {
             setPeopleInYourPendingRequests(data.map(user => ({
                 id: user.id,
@@ -72,9 +71,6 @@ const PrivateCircle = () => {
                 status: user.status,
                 type: user.type
             })))
-        } 
-        if(error) {
-            console.log("Couldn't get users yet to accept your request", error.message)
         }
     }
 
@@ -102,7 +98,6 @@ const PrivateCircle = () => {
             console.log("Couldn't get users yet to accept your request", error.message)
         }
     }
-  
 
     useEffect(() => {
         getPeopleInPrivateCircle()

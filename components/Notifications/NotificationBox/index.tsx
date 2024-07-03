@@ -9,6 +9,7 @@ import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
 import moment from 'moment'
+import { sendPushNotification } from '@/pushNotifications'
 
 const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data, senderUserData, seen, dateCreated }: notificationType) => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
@@ -110,6 +111,14 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
             .single()
             if(!error) {
                 console.log("Acceptance notification sent")
+                const { data } = await supabase
+                .from('Users')
+                .select('pushToken')
+                .eq('user_id', senderUserData?.user_id)
+                .single()
+                if(data) {
+                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} accepted your private circle request`)
+                }
             } else {
                 console.log("Couldn't send acceptance notification", error.message)
             }
@@ -129,6 +138,7 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
         .single()
         if(data) {
             console.log("Notification for invite acceptance exists")
+            return;
         } else {
             const { error } = await supabase
             .from('notifications')
@@ -136,6 +146,14 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
             .single()
             if(!error) {
                 console.log("Invite Acceptance notification sent")
+                const { data } = await supabase
+                .from('Users')
+                .select('pushToken')
+                .eq('user_id', senderUserData?.user_id)
+                .single()
+                if(data) {
+                    sendPushNotification(data.pushToken, 'Private', `You are now a part of ${authenticatedUserData?.username}'s Private Circle`)
+                }
             } else {
                 console.log("Couldn't send invite acceptance notification", error.message)
             }
@@ -207,7 +225,7 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                 <TouchableOpacity onPress={handleKeepUpProfileNavigation} style={[styles.container, !seen && { backgroundColor: 'rgba(98, 95, 224, 0.4)' }]}>
                     <View style={styles.keepupContentContainer}>
                         <Image source={require('@/assets/images/blankprofile.png')} style={styles.keepupUserImage}/>
-                        <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}>{ senderUserData?.username }</Text> started keeping up with your Convo: { convo?.convoStarter && <Text style={styles.keepupConvoText}>{ convo?.convoStarter }</Text>}</Text>
+                        <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}>{ senderUserData?.username }</Text> started keeping up with your { convo?.dialogue ? 'Dialogue' : 'Convo' }: { convo?.convoStarter && <Text style={styles.keepupConvoText}>{ convo?.convoStarter }</Text>}</Text>
                     </View>
 
                     <View style={styles.dateContainer}>
@@ -269,10 +287,9 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                         <View style={styles.convoStartContentContainer}>
                                 <Image source={require('@/assets/images/blankprofile.png')} style={styles.convoStartUserImage}/>
                             <View style={styles.right}>
-                                <Text style={styles.replyInfo}><Text style={styles.replyUsername}>{ senderUserData?.username }</Text> started a convo: <Text style={styles.replyConvoStarter}>{ data?.convoStarter }</Text></Text>
+                                <Text style={styles.replyInfo}><Text style={styles.replyUsername}>{ senderUserData?.username }</Text> started a {data?.dialogue ? 'Dialogue' : 'Convo'}: <Text style={styles.replyConvoStarter}>{ data?.convoStarter }</Text></Text>
                                 </View>
                         </View>
-
                         <View style={styles.dateContainer}>
                             <Text style={styles.date}>{moment(dateCreated).fromNow()}</Text>
                         </View>

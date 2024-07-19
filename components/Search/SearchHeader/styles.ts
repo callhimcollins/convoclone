@@ -5,12 +5,12 @@ const getStyles = (appearanceMode: appearanceStateType) => {
     return StyleSheet.create({
         container: {
             position: 'absolute',
-            backgroundColor: Platform.OS === 'ios'? appearanceMode.backgroundTransparent : appearanceMode.backgroundColor,
+            zIndex: 200,
             width: '100%',
-            paddingTop: 80,
-            zIndex: 100,
-            justifyContent: 'center',
-            alignItems: 'center'
+            paddingTop: 60,
+            alignItems: 'center',
+            paddingBottom: 5,
+            backgroundColor: Platform.OS === 'ios'? appearanceMode.backgroundTransparent : appearanceMode.backgroundColor,
         },
         textInput: {
             borderWidth: .5,

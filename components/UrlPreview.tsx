@@ -29,13 +29,12 @@ const UrlPreview = ({ url }: { url: string }) => {
     const [metadata, setMetadata] = useState<Metadata | null>(null)
     const [loading, setLoading] = useState(true)
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
-    
+    const formattedUrl = formatUrl(url);
     useEffect(() => {
         const fetchMetadata = async () => {
           try {
-            const formattedUrl = formatUrl(url);
             const data = await getLinkPreview(formattedUrl);
-            setMetadata(data);
+            setMetadata(data as any);
             setLoading(false);
           } catch (error) {
             setLoading(false);
@@ -50,14 +49,14 @@ const UrlPreview = ({ url }: { url: string }) => {
         return <View/>
     }
     return (
-      <Skeleton show={loading}>
+      <Skeleton width={'100%'} show={loading}>
           <View style={[styles.previewContainer]}>
 
           {metadata && metadata.images && metadata.images.length > 0 && (
             <Image source={{ uri: metadata.images[0] }} style={styles.image}/>
           )}
           <View style={styles.right}>
-              { metadata && <Text style={[styles.title, { color: appearanceMode.textColor }]}>{metadata.title}</Text>}
+              { metadata && <Text numberOfLines={2} style={[styles.title, { color: appearanceMode.textColor }]}>{metadata.title}</Text>}
               { metadata && <Text numberOfLines={3} ellipsizeMode='tail' style={[styles.description, { color: appearanceMode.secondary }]}>{metadata.description}</Text>}
           </View>
         </View>

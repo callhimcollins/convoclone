@@ -1,56 +1,52 @@
-import React, { ComponentProps, forwardRef, useEffect, useState } from 'react';
-import { Video } from 'expo-av';
+import React, { ComponentProps, FC, memo, useEffect, useState } from 'react';
+import { AVPlaybackStatus, Video } from 'expo-av';
 import { supabase } from '@/lib/supabase';
-import * as FileSystem from 'expo-file-system';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/state/store';
-import { VisibilityAwareView } from 'react-native-visibility-aware-view'
+
 type RemoteVideoProps = {
   path?: string | null;
+  onEnd?: () => void;
 } & Omit<ComponentProps<typeof Video>, 'source'>;
 
-const RemoteVideo = forwardRef(({ path, ...videoProps }: RemoteVideoProps, ref:any) => {
+const RemoteVideo: FC<RemoteVideoProps> = ({ path, onEnd, ...videoProps }) => {
   const [videoSource, setVideoSource] = useState<null | { uri: string }>(null);
-  const videoIsVisible = useSelector((state:RootState) => state.videoPlayback.isVisible)
 
-  const downloadFile = async (filePath: string) => {
+  const fetchVideo = async () => {
     try {
-      const { data, error } = await supabase.storage.from('files').download(filePath);
-
-      if (error) {
-        console.log('Error downloading video:', error);
-      } else if (data) {
-        // Generate a file path for the video
-        const fileUri = `${FileSystem.cacheDirectory}/${filePath.split('/').pop()}`;
-
-        // Convert Blob to base64
-        const reader = new FileReader();
-        reader.readAsDataURL(data);
-        reader.onloadend = async () => {
-          const base64Data = (reader.result as string)?.split(',')[1];
-
-          // Write the base64 data to the file system
-          await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
-
-          // Update state with the file URI
-          setVideoSource({ uri: fileUri });
-        };
+      if (path) {
+        const { data } = await supabase.storage
+          .from('userfiles')
+          .getPublicUrl(String(path));
+        if (data) {
+          setVideoSource({ uri: data.publicUrl });
+        } else {
+          // console.log('No public URL returned');
+        }
       }
     } catch (error) {
-      console.log('Error downloading video:', error);
+      console.log("Error fetching videos", error);
+    }
+  }
+
+  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    if (status.isLoaded && status.didJustFinish) {
+      onEnd?.();
     }
   };
 
+
   useEffect(() => {
     if (!path) return;
-    downloadFile(path);
+    fetchVideo();
   }, [path]);
 
-  return videoSource ?
-  <VisibilityAwareView onBecomeVisible={() => console.log("It's visible")}>
-    <Video shouldPlay={videoIsVisible} isLooping ref={ref} source={videoSource} {...videoProps} />
-  </VisibilityAwareView>
-   : null;
-});
+  return videoSource ? (
+    <Video
+      isLooping
+      source={videoSource}
+      {...videoProps}
+      onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+    />
+  ) : null;
+}
 
-export default RemoteVideo;
+export default memo(RemoteVideo);

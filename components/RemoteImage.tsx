@@ -1,61 +1,73 @@
-import { Image } from 'react-native'
 import React, { ComponentProps, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase';
-
+import FastImage from 'react-native-fast-image'
+import { Image, ActivityIndicator } from 'react-native'
+import { supabase } from '@/lib/supabase'
+import { Skeleton } from 'moti/skeleton'
+import { CacheVideo, CacheImage } from 'react-native-media-cache'
 
 type RemoteImageProps = {
-    path?: string | null;
-    fallback?: string;
-} & Omit<ComponentProps<typeof Image>, 'source'>;
+  path?: string | null
+  fallback?: string
+  skeletonHeight?: number
+  skeletonWidth?: number
+} & Omit<ComponentProps<typeof FastImage>, 'source'>
 
+const RemoteImage = ({ path, fallback, skeletonHeight, skeletonWidth, ...imageProps }: RemoteImageProps) => {
+  const [imageUri, setImageUri] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-const RemoteImage = ({ path, fallback, ...imageProps }: RemoteImageProps) => {
-    const [image, setImage] = useState('');
-    const [fallbackImage, setFallbackImage] = useState('');
-
-    (async () => {
-        const { data, error } = await supabase.storage
-        .from('files/Users/')
-        .download('blankprofile.png')
-        if(!error) {
-            const fr = new FileReader();
-            fr.readAsDataURL(data);
-            fr.onload = () => {
-                setFallbackImage(fr.result as string);
-            }
-        }
-    })()
-
-    useEffect(() => {
-        if(!path) return;
-        (async () => {
-            setImage('');
-            const { data, error } = await supabase.storage
-            .from('files')
-            .download(path);
-
-            if(error) {
-                console.log(error)
-            }
-
-            if(data) {
-                const fr = new FileReader();
-                fr.readAsDataURL(data);
-                fr.onload = () => {
-                    setImage(fr.result as string);
-                }
-            }
-        })();
-    }, [path])
-
-
-    if(!image) {
-
+  useEffect(() => {
+    if (!path) {
+      setImageUri(null)
+      setIsLoading(false)
+      return
     }
+    
+    let isMounted = true
+    const getImageUrl = async () => {
+      try {
+        setIsLoading(true)
+        const { data } = await supabase.storage
+          .from('userfiles')
+          .getPublicUrl(path)
 
+        if (data && data.publicUrl && isMounted) {
+          setImageUri(data.publicUrl)
+        } else {
+          // console.log('No public URL returned')
+        }
+      } catch (error) {
+        console.error('Error getting image URL:', error)
+        setImageUri(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    getImageUrl()
+    return () => {
+      isMounted = false
+    }
+  }, [path])
 
-    return <Image source={{ uri: image || fallback }} {...imageProps} />
+  if (isLoading || imageUri === null) {
+    return <Skeleton height={skeletonHeight} width={skeletonWidth} show={true}/>
+  }
+
+  if (!imageUri && !fallback) {
+    return null // Or return a placeholder component
+  }
+
+  return (
+    <FastImage
+      source={{ 
+        uri: (imageUri)|| fallback,
+        cache: FastImage.cacheControl.web
+      }}  // Add explicit dimensions
+      resizeMode="cover"
+      
+      {...imageProps}
+    />
+  )
 }
 
 export default RemoteImage
-

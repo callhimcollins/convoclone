@@ -9,6 +9,8 @@ const tabs = [{id: 1, name: "Home", darkModeIcon: require('../../assets/images/B
 },
 ]
 
+const homeTabs = ["From Earth 🌍", "From Private", "Keep Up", "Notifications"]
+
 const privateCircleTabs = ["In Your Circle", "Incoming Requests", "Your Requests",]
 const initialState = {
     numberOfNotifications: 0,
@@ -16,7 +18,9 @@ const initialState = {
     privateCircleTabs,
     activeTab: tabs[0],
     activePrivateCircleTab: privateCircleTabs[0],
-    convoStarter: false
+    convoStarter: false,
+    homeTabs,
+    activeHomeTab: homeTabs[0]
 }
 
 const navigationSlice = createSlice({

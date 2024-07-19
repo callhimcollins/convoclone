@@ -3,24 +3,53 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './lib/supabase';
-import { pushNotificationType } from './types';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: true,
     })
 })
 
-async function sendPushNotification(expoPushToken:string, title:string, body:string) {
-    console.log(`Sending to ${expoPushToken}...`)
+
+async function sendPushNotification(expoPushToken:string, title:string, body:string, type: string, navigationData: any, extraData?: any, user_id?: string) {
+    // console.log(`Sending to ${expoPushToken}...`)
+    let badgeCount;
+    if(user_id) {
+    const { data, error } = await supabase
+    .from('Users')
+    .select('badge_count')
+    .eq('user_id', user_id)
+    .single()
+    if(error) {
+      console.log(error.message)
+    } else {
+      const currentBadgeCount = data.badge_count || 0;
+      const { data:updateData, error:updateError } = await supabase
+      .from('Users')
+      .update({ badge_count: currentBadgeCount + 1 })
+      .eq('user_id', user_id)
+      .select('badge_count')
+      .single()
+      if(error) {
+        console.log(updateError?.message)
+      }
+      badgeCount = updateData?.badge_count;
+    }
+  }
+
     const message = {
         to: expoPushToken,
         sound: 'default',
         title,
         body,
-        data: { someData: 'goes here' },
+        badge: badgeCount,
+        data: {
+          type,
+          navigationData,
+          extraData
+        },
     };
 
     await fetch('https://exp.host/--/api/v2/push/send', {
@@ -32,11 +61,10 @@ async function sendPushNotification(expoPushToken:string, title:string, body:str
         },
         body: JSON.stringify(message),
     });
-}
+  }
 
 function handleRegistrationError(errorMessage: string) {
-    alert(errorMessage);
-    throw new Error(errorMessage);
+  console.log(errorMessage)
   }
 
   async function registerForPushNotificationsAsync(user_id:string) {
@@ -71,14 +99,17 @@ function handleRegistrationError(errorMessage: string) {
             projectId,
           })
         ).data;
-        console.log(pushTokenString);
-        const { error } = await supabase
-        .from('Users')
-        .update({ pushToken: pushTokenString })
-        .eq('user_id', user_id)
-        .single()
-        if(error) {
-            console.log("Couldn't add push notification to user device", error.message)
+        if(pushTokenString) {
+          const { error } = await supabase
+          .from('Users')
+          .update({ pushToken: pushTokenString })
+          .eq('user_id', user_id)
+          .single()
+          if(error) {
+            console.log(error.message)
+          } else {
+            console.log("Successfully added")
+          }
         }
         return pushTokenString;
       } catch (e: unknown) {

@@ -1,6 +1,6 @@
-import { StyleSheet, View } from 'react-native'
+import { Dimensions, Linking, StyleSheet, View } from 'react-native'
 import BottomNavigationBar from '@/components/BottomNavigationBar'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import Home from '@/components/Home'
 import Search from '@/components/Search'
 import KeepUp from '@/components/KeepUp'
@@ -10,24 +10,45 @@ import { RootState } from '@/state/store'
 import BottomSheet from '@/components/BottomSheet'
 import { supabase } from '@/lib/supabase'
 import { Session } from '@supabase/supabase-js'
-import { router } from 'expo-router'
-import { setAuthenticatedUserData, setAuthenticatedUserID } from '@/state/features/userSlice'
+import { router, useRootNavigationState } from 'expo-router'
+import { getUserData, setAuthenticatedUserData, setAuthenticatedUserID } from '@/state/features/userSlice'
 import NotificationPopUp from '@/components/Notifications/NotificationPopUp'
 import { setNotificationData, setNumberOfNotifications } from '@/state/features/notificationSlice'
 import SystemNotification from '@/components/Notifications/SystemNotifications'
 import * as ExternalNotifications from 'expo-notifications';
-import { registerForPushNotificationsAsync } from '@/pushNotifications'
+import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
+import * as ExpoNotifications from 'expo-notifications';
+import MediaFullScreen from '@/components/MediaFullScreen'
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 
 
 
+const DEVICE_HEIGHT = Dimensions.get('window').height
 const TabLayoutScreen = (session: Session) => {
   const activeTab = useSelector((state:RootState) => state.navigation.activeTab)
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const convoStarterStater = useSelector((state:RootState) => state.navigation.convoStarter)
   const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
+  const authenticatedUserID = useSelector((state:RootState) => state.user.authenticatedUserID)
+  const showFullScreenMedia = useSelector((state: RootState) => state.media.showFullScreen)
+  const navigationState = useRootNavigationState() as any
+  const currentRoute = navigationState?.routes[navigationState.index]?.name ?? undefined;
   const sessionChecked = useRef(false)
   const dispatch = useDispatch()
+  const mediaPosition = useSharedValue(DEVICE_HEIGHT)
+  const mediaOpacity = useSharedValue(2)
   let timeoutID: Number | undefined;
+
+  const animatedMediaStyles = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: mediaPosition.value
+        }
+      ],
+      opacity: mediaOpacity.value
+    }
+  })
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -69,8 +90,7 @@ const TabLayoutScreen = (session: Session) => {
       .from('notifications')
       .update({ deviceSeen: true })
       .eq('receiver_id', String(authenticatedUserData?.user_id))
-      .eq('id', String(data.id))
-      .single()
+      .neq('id', data.id)
       if(!updateError) {
         console.log("Notification updated successfully")
       }
@@ -85,6 +105,17 @@ const TabLayoutScreen = (session: Session) => {
     .eq('seen', false)
     if(data) {
       dispatch(setNumberOfNotifications(data.length))
+    }
+  }
+
+  const setNotificationsForDeviceSeen = async () => {
+    const { error: deviceSeenError } = await supabase
+    .from('notifications')
+    .update({ deviceSeen: true })
+    .eq('receiver_id', String(authenticatedUserData?.user_id))
+    if(deviceSeenError) {
+    } else {
+      console.log('Successfully updated notifications for device seen')
     }
   }
 
@@ -131,6 +162,12 @@ const TabLayoutScreen = (session: Session) => {
   useEffect(() => {
     checkForNotifications()
   }, [])
+
+  useEffect(() => {
+    if(activeTab.name === 'Notifications'){
+      setNotificationsForDeviceSeen()
+    }
+  }, [activeTab, dispatch])
 
 
   useEffect(() => {
@@ -180,11 +217,153 @@ const TabLayoutScreen = (session: Session) => {
     }, [authenticatedUserData?.user_id])
 
     useEffect(() => {
-      registerForPushNotificationsAsync(String(authenticatedUserData?.user_id));
-    }, [])
+      const subscription = ExternalNotifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data;
+        if(data && data.type === 'convoStart') {
+          console.log("Started")
+          dispatch(getConvoForChat(data.navigationData))
+          router.push({
+            pathname: '(chat)/[convoID]',
+            params: {
+              convoID: data.navigationData.convo_id
+            }
+          })
+        } else if(data && data.type ==='reply') {
+          dispatch(getConvoForChat(data.navigationData))
+          dispatch(setReplyChat({
+            content: data.extraData.content, 
+            convo_id: data.extraData.convo_id, 
+            username: data.extraData.username, 
+            user_id: data.extraData.user_id
+          }))
+          router.push({
+            pathname: '(chat)/[convoID]',
+            params: {
+                convoID: String(data.extraData.convo_id)
+            }
+          })
+        } else if(data && data.type === 'profile') {
+          dispatch(getUserData(data.navigationData))
+          router.push({
+            pathname: '(profile)/[profileID]',
+            params: {
+                profileID: String(data.navigationData.user_id)
+            }
+          })
+        }
+      })
     
+      // Proper cleanup function
+      return () => {
+        if (subscription && typeof subscription.remove === 'function') {
+          subscription.remove();
+        }
+      };
+    }, [router, dispatch])
+
+    useEffect(() => {
+
+      const handleUrl = async (url:string) => {
+        const withoutScheme = url.split('://')[1] || url
+        const withoutPath = withoutScheme.split('/').pop()
+        const uuid = withoutPath
+  
+        if (uuid && uuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          const { data } = await supabase
+          .from('Convos')
+          .select('*')
+          .eq('convo_id', uuid)
+          .single()
+          if(data) {
+            dispatch(getConvoForChat(data))
+          }
+          // Navigate to the chat screen with the UUID
+        } else {
+          console.log('No valid UUID found in the URL')
+        }
+      }
+  
+      // Set up listener for incoming links while the app is running
+      const subscription = Linking.addEventListener('url', ({ url }) => {
+        handleUrl(url)
+      })
+  
+      // Cleanup function to remove the event listener
+      return () => {
+        subscription.remove()
+      }
+    }, [router, authenticatedUserData])
+
+    const updateBadgeCount = async () => {
+      const { error } = await supabase
+      .from('Users')
+      .update({ badge_count: 0 })
+      .eq('user_id', String(authenticatedUserData?.user_id))
+      if(error) {
+        console.log(error.message)
+      } else {
+        console.log('badge count successfully updated')
+      }
+    }
+
+    useEffect(() => {
+      // Reset badge count when the app is opened
+      ExpoNotifications.setBadgeCountAsync(0).catch(error => {
+          console.log('Failed to reset badge count:', error);
+      });
+
+      // Request permissions for notifications
+      (async () => {
+          const { status } = await ExpoNotifications.getPermissionsAsync();
+          if (status !== 'granted') {
+              console.log('Failed to get push token for push notification!');
+              return;
+          }
+      })();
+
+      const subscription = ExpoNotifications.addNotificationReceivedListener(notification => {
+          const badge = notification.request.content.badge;
+          if (badge) {
+              ExpoNotifications.setBadgeCountAsync(badge).catch(error => {
+                  console.log('Failed to set badge count:', error);
+              });
+          }
+      });
+
+      return () => subscription.remove();
+  }, [authenticatedUserID]);
+
+  useEffect(() => {
+    updateBadgeCount()
+  }, [authenticatedUserID])
+
+  // Reset badge count when a notification response is received
+  useEffect(() => {
+      const subscription = ExpoNotifications.addNotificationResponseReceivedListener(response => {
+          console.log('Notification clicked', response);
+
+          ExpoNotifications.setBadgeCountAsync(0).catch(error => {
+              console.log('Failed to reset badge count:', error);
+          });
+      });
+
+      return () => subscription.remove();
+  }, []);
+    
+  useEffect(() => {
+    if(showFullScreenMedia) {
+      mediaPosition.value = withTiming(0)
+    } else {
+      mediaPosition.value = withTiming(DEVICE_HEIGHT)
+      
+    }
+  }, [showFullScreenMedia])
+
     return (
       <View style={[styles.container, { backgroundColor: appearanceMode.backgroundColor }]}>
+          { showFullScreenMedia && currentRoute !== '(profile)' && currentRoute !== '(chat)' && <Animated.View style={[styles.mediaContainer, animatedMediaStyles, { display: showFullScreenMedia ? 'flex' : 'none' }]}>
+            <MediaFullScreen />
+          </Animated.View>}
           <View style={styles.notificationContainer}>
             <NotificationPopUp/>
           </View>
@@ -219,7 +398,10 @@ const styles = StyleSheet.create({
       width: '100%', 
       zIndex: 200, 
       borderRadius: 10
+    },
+    mediaContainer: {
+      position: 'absolute', 
+      zIndex: 500
     }
   })
-  //curl https://api.anthropic.com/v1/messages --header "x-api-key: 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"
 

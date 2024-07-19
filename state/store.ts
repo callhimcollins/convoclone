@@ -6,7 +6,7 @@ import notificationReducer from "./features/notificationSlice";
 import startConvoReducer from "./features/startConvoSlice";
 import chatReducer from "./features/chatSlice";
 import userReducer from "./features/userSlice";
-import videoPlaybackReducer from './features/videoPlaybackSlice';
+import mediaReducer from './features/mediaSlice';
 import feedReducer from "./features/feedSlice";
 export const store = configureStore({
     reducer: {
@@ -17,7 +17,7 @@ export const store = configureStore({
        startConvo: startConvoReducer,
        chat: chatReducer,
        user: userReducer,
-       videoPlayback: videoPlaybackReducer,
+       media: mediaReducer,
        feed: feedReducer
     }
 })

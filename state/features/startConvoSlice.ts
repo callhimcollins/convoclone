@@ -28,6 +28,9 @@ const startConvoSlice = createSlice({
         setFileUploading: (state, action) => {
             state.fileUploading = action.payload
         },
+        removeFile: (state, action) => {
+            state.files = state.files.filter(file => file.assetId !== action.payload)
+        },
         setPrivate: (state, action) => {
             state.private = action.payload
         },
@@ -38,5 +41,5 @@ const startConvoSlice = createSlice({
 });
 
 
-export const { setFiles, emptyFiles, setFileUploading, setPrivate, setDialogue } = startConvoSlice.actions;
+export const { setFiles, emptyFiles, setFileUploading, setPrivate, setDialogue, removeFile } = startConvoSlice.actions;
 export default startConvoSlice.reducer;

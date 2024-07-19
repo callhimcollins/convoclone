@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { convoType } from "@/types";
 
+
 const initialState:any = {
     convo: null,
     lastChat: null,
@@ -9,7 +10,11 @@ const initialState:any = {
     itemHeights: {},
     showModal: false,
     modalData: null,
-    userCache: {}
+    userCache: {},
+    contextForBotState: {},
+    inputState: {},
+    convoExists: null,
+    chatFiles: []
 }
 
 const chatSlice = createSlice({
@@ -33,10 +38,43 @@ const chatSlice = createSlice({
         },
         addToUserCache: (state, action) => {
             state.userCache =  {...state.userCache, ...action.payload}
+        },
+        setBotContext: (state, action) => {
+            state.contextForBotState = action.payload
+        },
+        addToBotContext: (state, action) => {
+            if (!Array.isArray(state.contextForBotState)) {
+                state.contextForBotState = [];
+              }
+            if(state.contextForBotState.length >= 50) {
+                state.contextForBotState.shift();
+            }
+              state.contextForBotState.push(action.payload);
+        },
+        addToInputState: (state, action) => {
+            state.inputState =  {...state.inputState, ...action.payload}
+        },
+        setConvoExists: (state, action) => {
+            state.convoExists = action.payload
+        },
+        setChatFiles: (state, action) => {
+            state.chatFiles = action.payload
         }
     }
 })
 
 
-export const { getConvoForChat, updateLastChat, setReplyChat, setModalData, setShowModal, addToUserCache } = chatSlice.actions;
+export const { 
+    getConvoForChat, 
+    updateLastChat, 
+    setReplyChat, 
+    setModalData, 
+    setShowModal, 
+    addToUserCache, 
+    setBotContext, 
+    addToBotContext, 
+    addToInputState, 
+    setConvoExists,
+    setChatFiles 
+} = chatSlice.actions;
 export default chatSlice.reducer

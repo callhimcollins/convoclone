@@ -71,6 +71,14 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             fontFamily: 'bold',
             fontSize: 15,
         },
+        forgottenPasswordButton: {
+            marginTop: 20,
+        },
+        forgottenPasswordText: {
+            color: appearanceMode.primary,
+            fontFamily: 'bold',
+            fontSize: 13
+        },
         footerImage: {
             width: 30,
             height: 30,

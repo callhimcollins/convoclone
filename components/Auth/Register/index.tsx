@@ -11,6 +11,7 @@ import { setAuthenticatedUserData, setAuthenticatedUserID } from '@/state/featur
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import SystemNotification from '@/components/Notifications/SystemNotifications'
+import { registerForPushNotificationsAsync } from '@/pushNotifications'
 const Register = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
     const styles = getStyles(appearanceMode)
@@ -29,17 +30,20 @@ const Register = () => {
 
         dispatch(setAuthenticatedUserID(session.user.id))
         if(error) {
+          console.log(error.message)
           dispatch(setSystemNotificationState(true))
           dispatch(setSystemNotificationData({ type: 'error', message: 'Something went wrong' }))
           return;
         } else {
+          registerForPushNotificationsAsync(String(session.user?.id));
           router.replace('/(auth)/UsernameScreen')
         }
       } 
 
       if(error) {
+        console.log(error.message)
         dispatch(setSystemNotificationState(true))
-        dispatch(setSystemNotificationData({ type: 'error', message: 'Something went wrong' }))
+        dispatch(setSystemNotificationData({ type: 'error', message: error.message }))
       }
     }
     
@@ -69,9 +73,11 @@ const Register = () => {
             .single()
             if(data) {
               if(data.username === null) {
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(auth)/UsernameScreen')
               } else {
                 dispatch(setAuthenticatedUserData(data))
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(tabs)/')
               }
             } else {
@@ -85,6 +91,7 @@ const Register = () => {
                 dispatch(setSystemNotificationData({ type: 'error', message: 'Something went wrong' }))
                 return;
               } else {
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(auth)/UsernameScreen')
               }
             }

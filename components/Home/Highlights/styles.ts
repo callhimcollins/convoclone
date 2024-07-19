@@ -5,7 +5,7 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
     return StyleSheet.create({
         container: {
             backgroundColor: appearanceMode.backgroundColor,
-            marginHorizontal: 10
+            marginHorizontal: 10,
         },
         headerContainer: {
             flexDirection: 'row',
@@ -33,9 +33,13 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
             marginTop: 10,
             borderRadius: 10,
         },
+        imageContainer: {
+            width: Dimensions.get('window').width - 20,
+            height: Dimensions.get('window').height - 400,
+        },
         image: {
             width: Dimensions.get('window').width - 20,
-            height: Dimensions.get('window').height - 360,
+            height: Dimensions.get('window').height - 400,
             borderRadius: 10,
         },
         usersList: {
@@ -79,18 +83,31 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
         },
         nextHighlightButton: {
             position: 'absolute', 
-            width: '45%', 
-            height: 350,
+            width: '15%', 
+            height: Dimensions.get('window').height - 450,
             marginTop: 50,
             right: 0,
-            zIndex: 100
+            zIndex: 100,
+            // backgroundColor: 'green'
         }, 
         prevHighlightButton: {
             position: 'absolute', 
-            width: '45%', 
-            height: 350,
+            width: '15%', 
+            height: Dimensions.get('window').height - 450,
             marginTop: 50,
-            zIndex: 100
+            zIndex: 100,
+            // backgroundColor: 'green'
+        },
+        requestButton: {
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            padding: 7,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: 5
+        },
+        requestButtonText: {
+            color: appearanceMode.primary,
+            fontFamily: 'extrabold'
         }
     })
 }

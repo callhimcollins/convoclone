@@ -7,6 +7,7 @@ import getStyles from './styles'
 
 const KeepUpHeader = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
+    const activeTab = useSelector((state: RootState) => state.navigation.activeTab)
     const styles = getStyles(appearanceMode)
     const renderHeader = () => {
         if(Platform.OS === 'android' || appearanceMode.name === 'light') {
@@ -17,7 +18,7 @@ const KeepUpHeader = () => {
             )
         } else {
             return (
-                <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.container}>
+                <BlurView key={activeTab.name} tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.container}>
                     <Text style={styles.headerText}>Keep Ups</Text>
                 </BlurView>
             )

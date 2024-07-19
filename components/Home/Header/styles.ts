@@ -20,16 +20,20 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
             width: '100%'
         },
         logo: {
-            width: 40,
-            height: 40
+            width: 45,
+            height: 45,
         },
         icon: {
             fontSize: 40
         },
+        profileButton: {
+            width: 45,
+            height: 45,
+        },
         profileImage: {
             width: 45,
             height: 45,
-            borderRadius: 15
+            borderRadius: 10
         }
     })
 }

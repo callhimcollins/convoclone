@@ -9,7 +9,8 @@ import Animated, { runOnJS, useAnimatedGestureHandler, useAnimatedStyle, useShar
 import { setNotificationState } from '@/state/features/notificationSlice'
 import { getUserData } from '@/state/features/userSlice'
 import { router } from 'expo-router'
-import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
+import { getConvoForChat, setConvoExists, setReplyChat } from '@/state/features/chatSlice'
+import { setActiveTab } from '@/state/features/navigationSlice'
 
 interface GestureContext {
     translateY: number,
@@ -24,6 +25,7 @@ const NotificationPopUp = () => {
     const notificationDisplay = useSharedValue(-(DEVICE_HEIGHT))
     const notificationState = useSelector((state: RootState) => state.notifications.active)
     const dispatch = useDispatch()
+    const authenticatedUserData = useSelector((state: RootState) => state.user.authenticatedUserData)
     const animatedNotification = useAnimatedStyle(() => {
         return {
             transform: [
@@ -59,7 +61,7 @@ const NotificationPopUp = () => {
     }
 
     const handleReplyChatNavigation = async () => {
-        
+        dispatch(setConvoExists(null))
         dispatch(getConvoForChat(notificationData?.convo))
         if(notificationData?.data) {
             dispatch(setReplyChat({
@@ -78,13 +80,32 @@ const NotificationPopUp = () => {
         })
     }
 
+    const handleChatNavigation = async () => {
+        dispatch(setConvoExists(null))
+        dispatch(getConvoForChat(notificationData?.convo))
+        router.push({
+            pathname: '/(chat)/[convoID]',
+            params: {
+                convoID: String(notificationData?.convo?.convo_id)
+            }
+        })
+    }
+
+    const handleHighlight = async () => {
+        dispatch(setActiveTab(0))
+    }
+
+    const handleDiscover = async () => {
+        dispatch(setActiveTab(1))
+    }
+
     const renderNotificationBody = () => {
         if(notificationData?.type === 'reply') {
             return (
                 <TouchableOpacity onPress={handleReplyChatNavigation} style={styles.body}>
                     <View style={styles.header}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.data?.userData.username }</Text> replied to your chat in <Text style={styles.convoRoom}>{ notificationData?.convo.convoStarter }</Text></Text>
+                        <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData?.username }</Text> replied to your chat in <Text style={styles.convoRoom}>{ notificationData?.convo.convoStarter }</Text></Text>
                     </View>
 
                     <View style={{ backgroundColor: 'rgba(98, 95, 224, 0.2)', padding: 5, marginTop: 15, borderRadius: 5, marginHorizontal: 15 }}>
@@ -152,13 +173,32 @@ const NotificationPopUp = () => {
             )
         } else if(notificationData?.type === 'convoforuserskeepingup') {
             return (
-                <TouchableOpacity style={[styles.body]}>
+                <TouchableOpacity onPress={handleChatNavigation} style={[styles.body]}>
+                    { notificationData?.data?.private && <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }}>Private</Text>}
                     { notificationData.senderUserData && <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
                         <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>
                         <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.senderUserData.username }</Text> started a {notificationData?.data?.dialogue ? 'Dialogue' : 'Convo'}: <Text style={styles.convoRoom}>{ notificationData?.data?.convoStarter }</Text></Text>
                     </View>}
                 </TouchableOpacity>
             )
+        } else if(notificationData?.type === 'highlights') {
+            return (
+                <TouchableOpacity onPress={handleHighlight} style={styles.body}>
+                <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }}>From Convo</Text>
+                <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <Image style={styles.userImage} source={require('@/assets/images/logo.png')}/>
+                    <Text style={styles.headerText}><Text style={styles.username}>There are new highlights { authenticatedUserData?.username }</Text></Text>
+                </View>
+            </TouchableOpacity>
+            )
+        } else if(notificationData?.type === 'discover') {
+            <TouchableOpacity onPress={handleDiscover} style={styles.body}>
+                <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }}>Discover: {notificationData?.title}</Text>
+                <View style={[styles.header, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <Image style={styles.userImage} source={require('@/assets/images/logo.png')}/>
+                    <Text style={styles.headerText}><Text style={styles.username}>{ notificationData?.caption }</Text></Text>
+                </View>
+            </TouchableOpacity>
         }
     }
 

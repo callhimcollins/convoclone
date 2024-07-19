@@ -32,15 +32,18 @@ const NotificationFeed = () => {
     }, [])
 
     useEffect(() => {
-        const channel = supabase.channel('custom-notification-channel')
+        const channel = supabase.channel(`custom-notification-channel-${authenticatedUserData?.user_id}`)
         .on(
             'postgres_changes',
-            { event: 'INSERT', schema: 'public', table: 'notifications' },
+            { event: '*', schema: 'public', table: 'notifications' },
             (payload) => {
-                const newNotification = payload.new;
-                setNotificationData(prevData => [newNotification, ...prevData]);
+                if(payload.eventType === 'INSERT'){
+                    setNotificationData(prevData => [payload.new, ...(prevData ?? [])]);
+                } else if(payload.eventType === 'DELETE') {
+                    setNotificationData(prevData => prevData?.filter(notification => notification.id !== payload.old.id));
+                }
             }
-        )
+        ).subscribe();
 
         return () => {
             channel.unsubscribe();

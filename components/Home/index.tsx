@@ -1,5 +1,5 @@
 import { StyleSheet, ScrollView, Platform, Text, TouchableOpacity, Dimensions, FlatList, Image, ImageBackground, Button } from 'react-native'
-import React, { memo, useEffect, useMemo, useState } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 import { appearanceStateType } from '@/state/features/appearanceSlice'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -7,22 +7,20 @@ import Header from './Header'
 import users from '@/assets/data/users'
 import Highlights from './Highlights'
 import highlights from '@/assets/data/highlights'
-import { convoType, highlightsType, userType } from '@/types'
+import { convoType, highlightsType, highlightsType2, userType } from '@/types'
 import { View } from '../Themed'
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
+import { KeyboardAwareFlatList, KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
 import Convo from '../Convo'
 import { Entypo } from '@expo/vector-icons'
 import FromPrivate from './FromPrivate'
 import { supabase } from '@/lib/supabase'
-import ExperienceCheck from './ExperienceCheck'
 import { router } from 'expo-router'
 import { Skeleton } from 'moti/skeleton'
-import { LinearGradient } from 'expo-linear-gradient'
 import { toggleConvoStarterButton } from '@/state/features/navigationSlice'
 import { setDialogue } from '@/state/features/startConvoSlice'
-import { sendPushNotification } from '@/pushNotifications'
+import MediaFullScreen from '../MediaFullScreen'
+import { togglePlayPause } from '@/state/features/mediaSlice'
 
-const DEVICE_HEIGHT = Dimensions.get('window').height
 const PAGE_SIZE = 30
 const Home = () => {
     const user = users[0]
@@ -37,8 +35,8 @@ const Home = () => {
     const [highlightUsers, setHighlightUsers] = useState<Array<userType>>([])
     const [convos, setConvos] = useState<Array<convoType>>([])
     const [currentPage, setCurrentPage] = useState(1)
+    const [highlightsData, setHighlightsData] = useState<Array<highlightsType2>>([])
     const styles = getStyles(appearanceMode)
-    const highlightsData: highlightsType[] = highlights
     const dispatch = useDispatch()
 
     const handleStartDialogue = async () => {
@@ -46,10 +44,35 @@ const Home = () => {
         dispatch(setDialogue(true))
     }
 
-    const getAllHighlightUsers = () => {
-        setHighlightUsers(highlightsData.map(highlight => highlight.user))
+
+    const getAllHighlightUsers = async () => {
+        const { data, error } = await supabase
+        .from('highlights')
+        .select('convo_id, Convos(convo_id, Users(username, profileImage, user_id, backgroundProfileImage))')
+        .order('dateCreated', { ascending: false })
+        .eq('status', 'accepted')
+        .limit(5)
+        if(data) {
+            let highlightUsers:any = [];
+            data.map(convo => {
+                const user = convo?.Convos?.Users
+                highlightUsers.push(user)
+            })
+            setHighlightUsers(highlightUsers)
+        }
     }
 
+    const getallHighlights = async () => {
+        const { data, error } = await supabase
+        .from('highlights')
+        .select('convo_id, Convos(*, Users(username))')
+        .order('dateCreated', { ascending: false })
+        .eq('status', 'accepted')
+        .limit(5)
+        if(data) {
+            setHighlightsData(data)
+        }
+    }
 
     const getPrivateCircleConvos = async (user_id: string) => {
         const { data, error } = await supabase
@@ -57,6 +80,8 @@ const Home = () => {
         .select('*')
         .eq('user_id', user_id)
         .eq('private', true)
+        .eq('isDiscoverable', false)
+        .eq('isHighlight', false)
         .order('dateCreated', { ascending: false })
         .limit(1)
         if(data) {
@@ -115,17 +140,21 @@ const Home = () => {
             const blockedUsersList = blockedUserData.map((item: any) => item.blockedUserID)
             const { data:convoData, error:convoError } = await supabase
             .from('Convos')
-            .select('*')
+            .select('*, Users (user_id, username, profileImage, audio, backgroundProfileImage)')
             .not('user_id', 'in', `(${blockedUsersList.join(',')})`)
             .eq('private', false)
+            .eq('isDiscoverable', false)
+            .eq('isHighlight', false)
             .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
             .order('dateCreated', { ascending: false })
             if(convoError) {
                 console.log('Error fetching Convos in HomeScreen: ',convoError.message)
+                setLoading(false)
+                return;
             } else {
-
                 if(convoData.length === 0) {
                     setEndReached(true)
+                    setLoading(false)
                 } else {
                     if(currentPage === 1) {
                         setConvos(convoData)
@@ -137,7 +166,56 @@ const Home = () => {
                 }
             }
         } else {
+            setLoading(false)
             return;
+        }
+    }
+
+    const refreshConvos = async () => {
+        setLoading(true)
+        setCurrentPage(1) // Reset to the first page
+        setEndReached(false) // Reset endReached state
+        
+        try {
+            // Fetch blocked users
+            const { data: blockedUserData, error: blockedUserError } = await supabase
+                .from('blockedUsers')
+                .select('*')
+                .eq('user_id', String(authenticatedUserData?.user_id))
+    
+            if (blockedUserError) {
+                console.log('Error fetching blocked users:', blockedUserError.message)
+                setLoading(false)
+                return
+            }
+    
+            const blockedUsersList = blockedUserData.map((item: any) => item.blockedUserID)
+    
+            // Fetch the first page of data
+            const { data: convoData, error: convoError } = await supabase
+                .from('Convos')
+                .select('*, Users (user_id, username, profileImage, audio, backgroundProfileImage)')
+                .not('user_id', 'in', `(${blockedUsersList.join(',')})`)
+                .eq('private', false)
+                .eq('isDiscoverable', false)
+                .eq('isHighlight', false)
+                .range(0, PAGE_SIZE - 1)
+                .order('dateCreated', { ascending: false })
+            
+            if (convoError) {
+                console.log('Error refreshing Convos in HomeScreen:', convoError.message)
+            } else {
+                setConvos(convoData)
+                getAllHighlightUsers()
+                getallHighlights()
+                if (convoData.length < PAGE_SIZE) {
+                    setEndReached(true)
+                }
+            }
+        } catch (error) {
+            console.log('Unexpected error during refresh:', error)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -166,6 +244,7 @@ const Home = () => {
 
     useEffect(() => {
         getAllHighlightUsers()
+        getallHighlights()
     }, [])
 
 
@@ -174,84 +253,117 @@ const Home = () => {
         fetchConvos()
     }, [currentPage, authenticatedUserData])
 
+    useEffect(() => {
+        if( highlightsData[indexState]?.Convos?.files &&
+            (String(highlightsData[indexState].Convos.files).endsWith('mp4') ||
+            String(highlightsData[indexState].Convos.files).endsWith('mov') ||
+            String(highlightsData[indexState].Convos.files).endsWith('avi'))
+        ) {
+            dispatch(togglePlayPause({ index: String(highlightsData[indexState]?.Convos?.files[0]) }))
+        }
+    }, [highlightsData, indexState])
+
     return (
         <View style={styles.container}>
             <Header/>
-            
-            <KeyboardAwareScrollView contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 90 : 100 }} extraScrollHeight={Platform.select({ android: 210 })} enableOnAndroid={true} showsVerticalScrollIndicator={false}>
-                { experienceCheckState && <ExperienceCheck/>}
-                <Highlights numberOfKeepUps={highlightsData[indexState].numberOfKeepUps} highLightUsers={highlightUsers} id={highlightsData[indexState].id} activeInRoom={highlightsData[indexState].activeInRoom} user={highlightsData[indexState].user} image={highlightsData[indexState].image}/>
-                <View style={styles.privateContainer}>
-                    <View style={styles.privateHeader}>
-                        <Text style={styles.privateHeaderText}>From Private Circle</Text>
-
-                        { privateConvoList.length > 0 && <TouchableOpacity onPress={navigateToPrivateConvosFeed} style={styles.viewAllInPrivateButton}>
-                            <Text style={styles.viewAllInPrivateText}>All In Private Circle</Text>
-                            <Entypo name='chevron-right' size={20} color={appearanceMode.primary}/>
-                        </TouchableOpacity>}
-                        {/* { !privateConvoList.length && <TouchableOpacity style={styles.viewAllInPrivateButton}>
-                            <Text style={styles.viewAllInPrivateText}>Request To Join Circle</Text>
-                            <Entypo name='chevron-right' size={20} color={appearanceMode.primary}/>
-                        </TouchableOpacity>} */}
-                    </View>
-                    { privateConvoList.length > 0 && !privateConvoListLoading && <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {
-                            privateConvoList.map((convo, index) => (
-                                <FromPrivate dialogue={convo.dialogue} numberOfKeepUps={convo.numberOfKeepUps} convo_id={convo.convo_id}  convoStarter={convo.convoStarter} id={convo.id} key={index} user_id={String(convo.user_id)} />
-                            ))
-                        }
-                    </ScrollView>}
-                    { privateConvoList.length === 0 && !privateConvoListLoading &&
-                        <View style={styles.noPrivateConvoContainer}>
-                            <Text style={styles.noPrivateConvoText}>Join A Private Circle To See Private Convos</Text>
-                        </View>
-                    }
-
-                    {privateConvoListLoading && 
-                    <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 10, backgroundColor: appearanceMode.backgroundColor }}>
-                        <Skeleton colorMode={appearanceMode.name === 'light' ? 'light' : 'dark'} show height={160} width={'96%'}/>
-                    </View>                    
-                    }
-                </View>
-
-                <View style={styles.dialogueContainer}>
-                    <View style={styles.dialogueHeaderContainer}>
-                        <Image source={require('../../assets/images/dialoguerobot.png')} style={styles.dialogueLogo}/>
-                        <Text style={styles.dialogueHeaderText}>Introducing... Dialogue</Text>
-                    </View>
-
-                    <Text style={styles.dialogueSubText}>Have conversations with People, Friends... And Robots</Text>
-
-                    <TouchableOpacity onPress={handleStartDialogue} style={styles.dialogueButton}>
-                        <Text style={styles.dialogueButtonText}>Start A Dialogue</Text>
-                    </TouchableOpacity>
-                </View>
                 <View style={styles.convoContainer}>
                     {/* <Text style={styles.locationConvoText}>Conversations close to you</Text> */}
-                    { !loading && <FlatList
+                    { !loading && <KeyboardAwareFlatList
                         style={{ backgroundColor: appearanceMode.backgroundColor }}
+                        contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 90 : 100 }}
                         data={convos}
                         keyExtractor={(item) => item.convo_id}
+                        showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={() => (
+                            <View style={{ backgroundColor: appearanceMode.backgroundColor }}>
+                                <ScrollView contentContainerStyle={{ paddingHorizontal: 10 }} showsHorizontalScrollIndicator={false} horizontal style={styles.topOptionContainer}>
+                                <TouchableOpacity style={styles.topOptionButton}>
+                                        <Text style={styles.topOptionText}>From Earth</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.topOptionButton}>
+                                        <Text style={styles.topOptionText}>From Private</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.topOptionButton}>
+                                        <Text style={styles.topOptionText}>From People You're Keeping Up With </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.topOptionButton}>
+                                        <Text style={styles.topOptionText}>Robots Only</Text>
+                                    </TouchableOpacity>
+                                </ScrollView>
+                                <Highlights 
+                                highLightUsers={highlightUsers} 
+                                highlight={highlightsData[indexState]}
+                                />
+                                <View style={styles.privateContainer}>
+                                    <View style={styles.privateHeader}>
+                                        <Text style={styles.privateHeaderText}>From Private Circle</Text>
+
+                                        { privateConvoList.length > 0 && <TouchableOpacity onPress={navigateToPrivateConvosFeed} style={styles.viewAllInPrivateButton}>
+                                            <Text style={styles.viewAllInPrivateText}>All In Private Circle</Text>
+                                            <Entypo name='chevron-right' size={20} color={appearanceMode.primary}/>
+                                        </TouchableOpacity>}
+                                        {/* { !privateConvoList.length && <TouchableOpacity style={styles.viewAllInPrivateButton}>
+                                            <Text style={styles.viewAllInPrivateText}>Request To Join Circle</Text>
+                                            <Entypo name='chevron-right' size={20} color={appearanceMode.primary}/>
+                                        </TouchableOpacity>} */}
+                                    </View>
+                                    { privateConvoList.length > 0 && !privateConvoListLoading && <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        {
+                                            privateConvoList.map((convo, index) => (
+                                                <FromPrivate audio={convo.audio} mediaIndex={index} dialogue={convo.dialogue} numberOfKeepUps={convo.numberOfKeepUps} convo_id={convo.convo_id}  convoStarter={convo.convoStarter} id={convo.id} key={index} user_id={String(convo.user_id)} />
+                                            ))
+                                        }
+                                    </ScrollView>}
+                                    { privateConvoList.length === 0 && !privateConvoListLoading &&
+                                        <View style={styles.noPrivateConvoContainer}>
+                                            <Text style={styles.noPrivateConvoText}>Join A Private Circle To See Private Convos</Text>
+                                        </View>
+                                    }
+
+                                    {privateConvoListLoading && 
+                                    <View style={{ justifyContent: 'center', alignItems: 'center', marginTop: 10, backgroundColor: appearanceMode.backgroundColor }}>
+                                        <Skeleton colorMode={appearanceMode.name === 'light' ? 'light' : 'dark'} show height={160} width={'96%'}/>
+                                    </View>                    
+                                    }
+                                </View>
+                                <View style={styles.dialogueContainer}>
+                                    <View style={styles.dialogueHeaderContainer}>
+                                        <Image source={require('../../assets/images/dialoguerobot.png')} style={styles.dialogueLogo}/>
+                                        <Text style={styles.dialogueHeaderText}>Introducing... Dialogue</Text>
+                                    </View>
+
+                                    <Text style={styles.dialogueSubText}>Have conversations with People, Friends... And Robots</Text>
+
+                                    <TouchableOpacity onPress={handleStartDialogue} style={styles.dialogueButton}>
+                                        <Text style={styles.dialogueButtonText}>Start A Dialogue</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
                         renderItem={({ item, index }) => (
-                            <Convo 
+                            <Convo
                             link={item.link} 
-                            files={item.files} 
+                            files={item.files}
                             user_id={item.user_id} 
                             numberOfKeepUps={item.numberOfKeepUps} 
                             convo_id={item.convo_id} 
                             lastChat={item.lastChat} 
                             lastUpdated={item.lastUpdated} 
+                            audio={item.audio}
                             dateCreated={item.dateCreated} 
                             id={item.id} 
-                            userData={item.userData} 
+                            Users={item?.Users} 
                             convoStarter={item.convoStarter} 
                             activeInRoom={item.activeInRoom} 
                             key={index}
                             dialogue={item.dialogue}
+                            mediaIndex={index + .6}
                             />
                         )}
                         onEndReached={fetchMore}
                         onEndReachedThreshold={0.5}
+                        onRefresh={refreshConvos}
+                        refreshing={loading}
                     />}
 
                     { loading && 
@@ -260,13 +372,11 @@ const Home = () => {
                     </View>
                     }
                 </View>
-
-            </KeyboardAwareScrollView>
-        </View>
+            </View>
     )
 }
 
-export default memo(Home)
+export default Home
 
 
 const getStyles = (appearanceMode: appearanceStateType) => {
@@ -274,6 +384,29 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         container: {
             flex: 1,
             backgroundColor: appearanceMode.backgroundColor,
+            alignItems: 'center',
+        },
+        topOptionContainer: {
+            backgroundColor: appearanceMode.backgroundColor,
+            flexDirection: 'row',
+            top: 110,
+            marginBottom: 10,
+            paddingHorizontal: 10,
+        },
+        topOptionButton: {
+            marginVertical: 10,
+            borderWidth: 1,
+            borderColor: appearanceMode.faint,
+            paddingVertical: 10,
+            paddingHorizontal: 15,
+            borderRadius: 30,
+            marginRight: 5,
+            justifyContent: 'center',
+            alignItems: 'center'
+        },
+        topOptionText: {
+            fontFamily: 'extrabold',
+            color: 'gray'
         },
         convoContainer: {
             backgroundColor: appearanceMode.backgroundColor,

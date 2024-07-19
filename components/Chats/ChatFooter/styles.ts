@@ -29,8 +29,6 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             borderRadius: 30
         },
         inputContainer: {
-            borderWidth: 1,
-            borderColor: appearanceMode.faint,
             paddingVertical: 1,
             paddingHorizontal: 10,
             width: Dimensions.get('window').width * .5,
@@ -51,6 +49,12 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             color: appearanceMode.primary,
             fontFamily: 'bold',
             fontSize: 15
+        },
+        attachButton: {
+            backgroundColor: appearanceMode.faint,
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 10
         },
         replyChatContainer: {
             backgroundColor: appearanceMode.faint, 
@@ -77,7 +81,50 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         replyChat: {
             fontFamily: 'semibold', 
             color: appearanceMode.textColor
-        }
+        },
+        audioPlayContainer: {
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            width: '100%',
+            padding: 10,
+            borderRadius: 15,
+        },
+        innerAudioPlayContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+        },
+        playButtonImage: {
+            width: 30,
+            height: 30
+        },
+        sendAudioButton: {
+            backgroundColor: appearanceMode.primary,
+            paddingHorizontal: 15,
+            paddingVertical: 10,
+            borderRadius: 10,
+        },
+        sendAudioText: {
+            color: 'white',
+            fontFamily: 'bold',
+            fontSize: 13
+        },
+        visualizer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 10,
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            padding: 5,
+            marginVertical: 23,
+            gap: 3,
+            width: '100%'
+        },
+        bar: {
+            width: 5,
+            borderRadius: 10,
+            backgroundColor: appearanceMode.primary,
+            marginHorizontal: 1,
+        },
     })
 }
 

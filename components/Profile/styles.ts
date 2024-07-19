@@ -146,7 +146,13 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             width: 100, 
             paddingVertical: 4, 
             borderRadius: 50
-        }
+        },
+        mediaContainer: {
+            width: '100%', 
+            height: '100%', 
+            zIndex: 300, 
+            position: 'absolute' 
+          }
     })
 }
 

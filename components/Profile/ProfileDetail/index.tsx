@@ -14,6 +14,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { sendPushNotification } from '@/pushNotifications'
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av'
 
 const DEVICE_WIDTH = Dimensions.get('window').width
 const ProfileDetail = ( user:userType) => {
@@ -24,6 +25,7 @@ const ProfileDetail = ( user:userType) => {
     const [linkName, setLinkName] = useState('')
     const [linkUrl, setLinkUrl] = useState('')
     const [userLinks, setUserLinks] = useState<Array<linkType>>()
+    const [url, setUrl] = useState('')
     const [validURL, setValidURL] = useState(true)
     const { profileID } = useLocalSearchParams()
     const styles = getStyles(appearanceMode)
@@ -34,6 +36,9 @@ const ProfileDetail = ( user:userType) => {
     const dispatch = useDispatch()
     const usernameContainerWidth = useSharedValue(DEVICE_WIDTH * 0.65)
     const usernameContainerOpacity = useSharedValue(1)
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    const [isPaused, setIsPaused] = useState(true)
+    const [audio, setAudio] = useState<string | null>(null)
 
     const handleActivetabButton = (index: Number) => {
         dispatch(setActiveProfileTab(index))
@@ -59,6 +64,72 @@ const ProfileDetail = ( user:userType) => {
         setShowLinkNameInput(false)
     }
 
+    const playPauseAudioProfile = async () => {
+        try { 
+          // Configure audio session
+          await Audio.setAudioModeAsync({
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: true,
+            interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+          });
+      
+          // Stop all other playing sounds
+          await Audio.setIsEnabledAsync(false);
+          await Audio.setIsEnabledAsync(true);
+      
+          if (sound) {
+            if (isPaused) {
+              await sound.playAsync();
+              setIsPaused(false);
+            } else {
+              await sound.pauseAsync();
+              setIsPaused(true);
+            }
+          } else if (audio) {
+            const { sound: newSound } = await Audio.Sound.createAsync(
+              { uri: audio },
+              { shouldPlay: true }
+            );
+            setSound(newSound);
+            setIsPaused(false);
+      
+            newSound.setOnPlaybackStatusUpdate(async (status:any) => {
+              if (status.didJustFinish) {
+                setIsPaused(true);
+                await newSound.setPositionAsync(0);
+              }
+            });
+          } else {
+            dispatch(setSystemNotificationState(true));
+            dispatch(setSystemNotificationData({ type: 'neutral', message: `Nothing To Play` }));
+          }
+        } catch (error) {
+          dispatch(setSystemNotificationState(true));
+          dispatch(setSystemNotificationData({ type: 'error', message: 'An Error Occurred' }));
+        }
+      };
+  
+      const fetchAudioProfile = async () => {
+          try {
+              const { data } = await supabase.storage
+              .from('userfiles')
+              .getPublicUrl(String(user.audio));
+              if(data) {
+                  setAudio(data.publicUrl)
+              }
+          } catch (error) {
+              dispatch(setSystemNotificationState(true))
+              dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
+          }
+      }
+  
+      useEffect(() => {
+          if(user.audio) {
+              fetchAudioProfile()
+          }
+      }, [user])
+
     const onSaveLink = async () => {
         setShowLinkNameInput(false);
         setAddLinkContainerDisplay(false);
@@ -75,7 +146,7 @@ const ProfileDetail = ( user:userType) => {
             if (data) {
                 // Update userLinks state
                 const currentLinks = data.links || [];
-                const newLink = { name: linkName, url: linkUrl };
+                const newLink = { name: linkName, url };
                 const updatedLinks = [...currentLinks, newLink];
                 setUserLinks(updatedLinks);
                 const { error: updateError } = await supabase
@@ -142,14 +213,26 @@ const ProfileDetail = ( user:userType) => {
     })
 
 
-    const validateURL = (url:string) => {
-        const regex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/[^\s]*)?$/
-        return regex.test(url)
-    }
+    const extractLink = (link: string) => {
+        const urlRegex = /(https?:\/\/)?([^\s]+)/i;
+        const match = link.match(urlRegex);
+        if (match && match[0]) {
+          let url = match[0];
+          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+          }
+          setUrl(url);
+          return true;
+        } else {
+          setUrl('');
+          return false;
+        }
+      };
+
 
     const handleUrlChange = (text:string) => {
         setLinkUrl(text.toLowerCase())
-        setValidURL(validateURL(text))
+        setValidURL(extractLink(text))
     }
 
     const handleOpenLink = async (url:string) => {
@@ -215,12 +298,12 @@ const ProfileDetail = ( user:userType) => {
                     console.log("Notification sent successfully")
                     const { data } = await supabase
                     .from('Users')
-                    .select('pushToken')
+                    .select('pushToken, user_id')
                     .eq('user_id', userData?.user_id)
                     .single()
 
                     if(data) {
-                        sendPushNotification(data.pushToken, "Keep Up", `${authenticatedUserData?.username} started keeping up with you`)
+                        sendPushNotification(data.pushToken, "Keep Up", `${authenticatedUserData?.username} started keeping up with you`, 'profile', authenticatedUserData, null, data.user_id)
                     }
                 } else {
                     console.log("Couldn't send notification", error.message)
@@ -328,17 +411,13 @@ const ProfileDetail = ( user:userType) => {
         }
     }, [])
 
-
     return (
         <GestureHandlerRootView>
         <View style={styles.container}>
             <View style={styles.profileBackgroundImageContainer}>
-                { !userData?.backgroundProfileImage && <Image
-                source={{ uri: 'https://as1.ftcdn.net/v2/jpg/06/19/33/90/1000_F_619339097_kGKYaLzvVDstu1mFB733Y1unUlXBdpFO.jpg' }}
-                style={styles.profileBackgroundImage}
-                />}
-                { userData?.backgroundProfileImage && <RemoteImage
-                path={userData?.backgroundProfileImage}
+                { userData?.username && <RemoteImage
+
+                path={`${userData?.backgroundProfileImage}`}
                 style={styles.profileBackgroundImage}
                 />}
                 <LinearGradient
@@ -413,12 +492,14 @@ const ProfileDetail = ( user:userType) => {
                 />
             </View>
             <View style={styles.userDetailContainer}>
-                {/* <RemoteImage style={styles.profileImage} path={authenticatedUserData?.profileImage}/> */}
-                <Image source={require('@/assets/images/blankprofile.png')} style={styles.profileImage}/>
+                <TouchableOpacity onPress={playPauseAudioProfile}>
+                    <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} style={styles.profileImage} path={`${userData?.profileImage}`}/>
+                </TouchableOpacity>
                 <Animated.View style={[styles.usernameContainer, animatedUsernameContainerStyles]}>
                     <TouchableOpacity onPress={handleShowProfileModal}>
                       <Text style={styles.username}>{ user.username?.split('-')[0] }</Text>
-                      <Text numberOfLines={3} style={styles.bio}>{user.bio}</Text>
+                      { user.bio && <Text numberOfLines={3} style={styles.bio}>{user.bio}</Text>}
+                      { !user.bio && <Text style={styles.bio}>No Bio. Tap For More Info</Text>}
                     </TouchableOpacity>
                     { user.links && user.links.length > 0 && <ScrollView showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, alignItems: 'center' }} horizontal>
                         {user.links.map((link) => {
@@ -455,10 +536,10 @@ const ProfileDetail = ( user:userType) => {
                 <Animated.View>
                     { addLinkContainerDisplay && <View>
                         { !showLinkNameInput && <Animated.View>
-                            <TextInput value={linkUrl} onChangeText={(text) => handleUrlChange(text)} style={{ backgroundColor: appearanceMode.faint, padding: 10, marginBottom: 10, borderRadius: 7, fontFamily: 'bold', color: appearanceMode.textColor }} placeholder='Link URL'/>
+                            <TextInput value={linkUrl} onChangeText={(text) => handleUrlChange(text)} style={{ backgroundColor: appearanceMode.faint, padding: 10, marginBottom: 10, borderRadius: 7, fontFamily: 'bold', color: appearanceMode.textColor, width: '100%', maxWidth: DEVICE_WIDTH * 0.6 }} placeholder='Link URL'/>
                         </Animated.View>}
                         { showLinkNameInput && <Animated.View>
-                            <TextInput value={linkName} onChangeText={(text) => setLinkName(text)} style={{ backgroundColor: appearanceMode.faint, padding: 10, marginBottom: 10, borderRadius: 7, fontFamily: 'bold', color: appearanceMode.textColor }} placeholder='Link Name'/>
+                            <TextInput value={linkName} onChangeText={(text) => setLinkName(text)} style={{ backgroundColor: appearanceMode.faint, padding: 10, marginBottom: 10, borderRadius: 7, fontFamily: 'bold', color: appearanceMode.textColor, width: '100%', maxWidth: DEVICE_WIDTH * 0.6 }} placeholder='Link Name'/>
                         </Animated.View>}
                     </View>}
                     { addLinkContainerDisplay && <View style={{ flexDirection: 'row', width: DEVICE_WIDTH * 0.65, gap: 10, alignItems: 'center'}}>

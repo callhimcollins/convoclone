@@ -11,7 +11,7 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             paddingBottom: 10,
             paddingHorizontal: 17,
             overflow: 'hidden',
-            zIndex: 400,
+            zIndex: 200,
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',

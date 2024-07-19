@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "convoclone",
-    "slug": "convoclone",
+    "name": "Convo",
+    "slug": "Convo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "icon": "./assets/images/logo.png",
+    "scheme": "com.social.convo",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#625FE0"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,20 +20,19 @@
           "audio"
         ]
       },
-      "bundleIdentifier": "com.startconvoapp.convoclone"
+      "bundleIdentifier": "com.social.convo"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#625FE0"
       },
-      "package": "com.startconvoapp.convoclone",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.social.convo"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/logo.png"
     },
     "plugins": [
       "expo-router",
@@ -49,7 +48,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "1472121b-c4ec-420e-9d26-63ae5c274184"
+        "projectId": "12167a5b-09bd-486c-9185-bbc2271bc270"
       }
     }
   }

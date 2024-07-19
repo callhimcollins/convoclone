@@ -1,5 +1,5 @@
 import { Text, TouchableOpacity, View, FlatList } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import getStyles from './styles'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -11,6 +11,7 @@ import InYourCircle from './InYourCircle'
 import { router } from 'expo-router'
 import YourRequestBox from './YourRequestBox'
 import IncomingRequestBox from './IncomingRequestBox'
+import { updateAppInView } from '@/pushNotifications'
 const PrivateCircle = () => {
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
     const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)

@@ -74,10 +74,13 @@ const PrivateConvos = () => {
                 lastUpdated={item.lastUpdated} 
                 dateCreated={item.dateCreated} 
                 id={item.id} 
-                userData={item.userData} 
+                audio={item.audio}
+                Users={item.Users} 
                 convoStarter={item.convoStarter} 
                 activeInRoom={item.activeInRoom} 
+                dialogue={item.dialogue}
                 key={index}
+                mediaIndex={index + .2}
                 />
                 )}
             />}

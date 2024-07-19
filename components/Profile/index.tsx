@@ -5,7 +5,7 @@ import { RootState } from '@/state/store'
 import getStyles from './styles'
 import ProfileHeader from './ProfileHeader'
 import ProfileFeed from './ProfileFeed'
-import { useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { convoType, linkType } from '@/types'
 import NotificationPopUp from '../Notifications/NotificationPopUp'
@@ -16,6 +16,7 @@ import Animated, { runOnJS, useAnimatedGestureHandler, useAnimatedStyle, useShar
 import UrlPreview from '../UrlPreview'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import { setShowProfileModal } from '@/state/features/userSlice'
+import MediaFullScreen from '../MediaFullScreen'
 
 interface GestureContext {
   translateY: number,
@@ -35,6 +36,20 @@ const Profile = () => {
     const [convos, setConvos] = useState<convoType[]>()
     const dispatch = useDispatch()
     const profileModalVisibility = useSharedValue(DEVICE_HEIGHT)
+    const showFullScreenMedia = useSelector((state: RootState) => state.media.showFullScreen)
+    const mediaPosition = useSharedValue(DEVICE_HEIGHT)
+    const mediaOpacity = useSharedValue(2)
+    
+    const animatedMediaStyles = useAnimatedStyle(() => {
+      return {
+        transform: [
+          {
+            translateY: mediaPosition.value
+          }
+        ],
+        opacity: mediaOpacity.value
+      }
+    })
 
     const animatedProfileModal = useAnimatedStyle(() => {
       return {
@@ -73,7 +88,9 @@ const Profile = () => {
                 setUser(data)
             }
             if(error) {
-                console.log(error)
+              dispatch(setSystemNotificationState(true))
+              dispatch(setSystemNotificationData({ type: 'error', message: "User Not Found"}))
+              router.replace('(auth)/LoginScreen')
             }
         }
     }
@@ -82,9 +99,11 @@ const Profile = () => {
         if(activeTab === 'Convos') {
           const { data, error } = await supabase
           .from('Convos')
-          .select('*')
+          .select('*, Users(user_id, username, profileImage, audio)')
           .eq('user_id', String(profileID))
           .eq('private', false)
+          .eq('isDiscoverable', false)
+          .eq('isHighlight', false)
           .order('dateCreated', { ascending: false })
           if(data) {
             setConvos(data)
@@ -95,7 +114,7 @@ const Profile = () => {
         } else if(activeTab === 'Private') {
           const { data, error } = await supabase
           .from('Convos')
-          .select('*')
+          .select('*, Users(user_id, username, profileImage)')
           .eq('user_id', String(profileID))
           .eq('private', true)
           .order('dateCreated', { ascending: false })
@@ -169,6 +188,15 @@ const Profile = () => {
           }
       })
 
+      useEffect(() => {
+        if(showFullScreenMedia) {
+          mediaPosition.value = withTiming(0)
+        } else {
+          mediaPosition.value = withTiming(DEVICE_HEIGHT)
+          
+        }
+      }, [showFullScreenMedia])
+
       const renderPopUp = () => {
         if(Platform.OS === 'android') {
           return (
@@ -222,7 +250,9 @@ const Profile = () => {
           { authenticatedUserData && authenticatedUserData?.user_id === profileID &&
             <GestureHandlerRootView>
               <View style={styles.container}>
-
+              { showFullScreenMedia && <Animated.View style={[styles.mediaContainer, animatedMediaStyles, { display: showFullScreenMedia ? 'flex' : 'none' }]}>
+                <MediaFullScreen />
+              </Animated.View>}
               <View style={styles.notificationContainer}>
                 <NotificationPopUp/>
               </View>
@@ -235,8 +265,8 @@ const Profile = () => {
                 {renderPopUp()}
               </PanGestureHandler>
 
-              <ProfileHeader backgroundProfileImage={authenticatedUserData.backgroundProfileImage}  id={authenticatedUserData.id} name={authenticatedUserData.name}/>
-              <ProfileFeed links={authenticatedUserData.links} convos={convos} username={authenticatedUserData.username} bio={authenticatedUserData.bio} id={authenticatedUserData.id}/>
+              <ProfileHeader audio={authenticatedUserData.audio} backgroundProfileImage={authenticatedUserData.backgroundProfileImage} id={authenticatedUserData.id} name={authenticatedUserData.name}/>
+              <ProfileFeed audio={authenticatedUserData.audio} links={authenticatedUserData.links} convos={convos} username={authenticatedUserData.username} bio={authenticatedUserData.bio} id={authenticatedUserData.id}/>
           </View>
           </GestureHandlerRootView>
           }
@@ -273,8 +303,8 @@ const Profile = () => {
                   </BlurView>
                 </Animated.View>
               </PanGestureHandler>
-                  <ProfileHeader id={user.id} name={user.name}/>
-                  <ProfileFeed links={user.links} convos={convos} username={user.username} bio={user.bio} id={user.id}/>
+                  <ProfileHeader audio={user.audio} id={user.id} name={user.name}/>
+                  <ProfileFeed audio={user.audio} links={user.links} convos={convos} username={user.username} profileImage={user.profileImage} bio={user.bio} id={user.id}/>
               </View> 
             </GestureHandlerRootView>
           }

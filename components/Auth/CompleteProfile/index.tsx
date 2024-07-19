@@ -14,6 +14,7 @@ import { randomUUID } from 'expo-crypto'
 import { Audio } from 'expo-av'
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 interface SelectedImageType {
     uri: string,
     type: string
@@ -34,7 +35,6 @@ const CompleteProfile = () => {
     const recordContainerHeight = useSharedValue(0)
     const recordContainerOpacity = useSharedValue(0)
     const styles = getStyles(appearanceMode)
-
     const animatedRecordContainerstyle = useAnimatedStyle(() => {
         return {
             height: recordContainerHeight.value,
@@ -156,7 +156,7 @@ const CompleteProfile = () => {
                 });
             } else {
                 dispatch(setSystemNotificationState(true));
-                dispatch(setSystemNotificationData({ type: 'error', message: 'Nothing To Play' }));
+                dispatch(setSystemNotificationData({ type: 'neutral', message: 'Nothing To Play' }));
             }
         } catch (error) {
             dispatch(setSystemNotificationState(true));
@@ -197,16 +197,53 @@ const CompleteProfile = () => {
         if(!selectedImage?.uri?.startsWith('file')) {
             return;
         }
+        const username = await AsyncStorage.getItem('username')
+        if(username) {
+            const base64 = await FileSystem.readAsStringAsync(selectedImage.uri, { encoding: 'base64' })
+            const filepath = `${username}-profileImage`;
+            const contentType = 'image/png';
+            const { data } = await supabase
+            .storage
+            .from('userfiles')
+            .upload(filepath, decode(base64), { contentType, cacheControl: '31536000', upsert: true })
+            if(data) {
+                return data?.path
+            } else {
+                dispatch(setSystemNotificationState(true));
+                dispatch(setSystemNotificationData({ type: 'error', message: 'Failed To Upload Image' }));
+            }
+        }
+    }
 
-        const base64 = await FileSystem.readAsStringAsync(selectedImage.uri, { encoding: 'base64' })
-        const filepath = `Users/${userId}/${randomUUID()}.png`;
-        const contentType = 'image/png';
-        const { data } = await supabase
-        .storage
-        .from('files')
-        .upload(filepath, decode(base64), { contentType })
-        if(data) {
-            return (data.path)
+    const uploadAudioProfile = async () => {
+        if(!recordingUri?.startsWith('file')) {
+            return;
+        }
+        const username = await AsyncStorage.getItem('username')
+        if(username && recordingUri) {
+            const base64 = await FileSystem.readAsStringAsync(recordingUri, { encoding: 'base64' })
+            const filepath = `${username}-audioProfile`;
+            const contentType = 'audio/mpeg'
+            const { data, error } = await supabase
+            .storage
+            .from('userfiles')
+            .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
+            if(data) {
+                console.log('Uploaded in database')
+                const { error:updateError } = await supabase
+                .from('Users')
+                .update({ audio: `${username}-audioProfile`})
+                .eq('user_id', String(userId))
+                if(!updateError) {
+                    console.log("Updated profile background in database")
+                } else {
+                    console.log("Couldn't update profile background in database")
+                }
+            } else if(error) {
+                console.log("error uploading profile background", error.message)
+            }
+        } else {
+            console.log('No Audio')
         }
     }
 
@@ -226,17 +263,17 @@ const CompleteProfile = () => {
     const handleCompleteProfile = async () => {
         try {
             if(selectedImage) {
+                const username = await AsyncStorage.getItem('username')
                 try {
-                    const profileImage = await uploadImage()
-                    const { error } = await supabase
-                    .from('Users')
-                    .update({profileImage})
-                    .eq('user_id', String(userId))
-                    .single()
-                    if(error) {
-                        return;
-                    } else {
-                        console.log("Profile completed")
+                    const imageUpload = await uploadImage()
+                    if(imageUpload){
+                        const { error } = await supabase
+                        .from('Users')
+                        .update({ profileImage: `${username}-profileImage`})
+                        .eq('user_id', String(userId))
+                        if(!error) {
+                            console.log("image updated in db successfully")
+                        }
                     }
                 } catch (error) {
                     console.log(error)
@@ -260,6 +297,7 @@ const CompleteProfile = () => {
                     return;
                 }
             }
+            await uploadAudioProfile()
             await dispatchUserData()
             router.replace('/(tabs)/')
         } catch (error) {

@@ -8,6 +8,7 @@ import { getStyles } from './styles'
 import { router } from 'expo-router'
 import { getUserData } from '@/state/features/userSlice'
 import RemoteImage from '@/components/RemoteImage'
+import { togglePlayPause } from '@/state/features/mediaSlice'
 
 
 const Header = () => {
@@ -18,6 +19,7 @@ const Header = () => {
     const styles = getStyles(appearanceMode)
 
     const handleNavigation = () => {
+        dispatch(togglePlayPause({ index: '' }))
         dispatch(getUserData(authenticatedUserData))
         router.push({
             pathname: '/(profile)/[profileID]',
@@ -29,25 +31,24 @@ const Header = () => {
 
     const renderHeader = () => {
         if(Platform.OS === 'android') {
-            return <View style={[styles.headerContainer, { backgroundColor: appearanceMode.backgroundColor }]}>
+            return <View key={String(authenticatedUserData?.username)} style={[styles.headerContainer, { backgroundColor: appearanceMode.backgroundColor }]}>
                 <View style={styles.contentContainer}>
-                    <Image source={require(`@/assets/images/logo.png`)} style={styles.logo}/>
-                    <TouchableOpacity onPress={handleNavigation}>
-                        {/* <RemoteImage path={authenticatedUserData?.profileImage} style={styles.profileImage}/> */}
-                        <Image source={require(`@/assets/images/blankprofile.png`)} style={styles.profileImage}/>
+                        { appearanceMode.name === 'light' && <Image source={require(`@/assets/images/applogolightmode.png`)} style={styles.logo}/>}
+                        { appearanceMode.name === 'dark' && <Image source={require(`@/assets/images/applogodarkmode.png`)} style={styles.logo}/>}                    <TouchableOpacity style={styles.profileButton} onPress={handleNavigation}>
+                        <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={`${authenticatedUserData?.username}-profileImage`} style={styles.profileImage}/>
                     </TouchableOpacity>
                 </View>
             </View>
         } else {
-            return <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.headerContainer}>
+            return (<BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.headerContainer}>
                 <View style={styles.contentContainer}>
-                    <Image source={require(`@/assets/images/logo.png`)} style={styles.logo}/>
-                    <TouchableOpacity onPress={handleNavigation}>
-                        {/* <RemoteImage path={authenticatedUserData?.profileImage} style={styles.profileImage}/> */}
-                        <Image source={require(`@/assets/images/blankprofile.png`)} style={styles.profileImage}/>
+                    { appearanceMode.name === 'light' && <Image source={require(`@/assets/images/applogolightmode.png`)} style={styles.logo}/>}
+                    { appearanceMode.name === 'dark' && <Image source={require(`@/assets/images/applogodarkmode.png`)} style={styles.logo}/>}
+                    <TouchableOpacity style={styles.profileButton}  onPressIn={() => handleNavigation()}>
+                        <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={`${authenticatedUserData?.profileImage}`} style={styles.profileImage}/>
                     </TouchableOpacity>
                 </View>
-            </BlurView>
+            </BlurView>)
         }
     }
     

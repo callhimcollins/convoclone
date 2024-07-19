@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image, Platform } from 'react-native'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
 import getStyles from './styles'
@@ -11,6 +11,12 @@ import { setSystemNotificationData, setSystemNotificationState } from '@/state/f
 import SystemNotification from '@/components/Notifications/SystemNotifications'
 import * as AppleAuthentication from 'expo-apple-authentication'
 // import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'
+import * as WebBrowser from "expo-web-browser";
+import { registerForPushNotificationsAsync } from '@/pushNotifications'
+
+
+WebBrowser.maybeCompleteAuthSession(); // required for web only
+
 
 const Login = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
@@ -20,6 +26,7 @@ const Login = () => {
     const styles = getStyles(appearanceMode)
     const dispatch = useDispatch()
 
+
     const handleLogin = async () => {
       setLoading(true)
       const { data: { session }, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -27,17 +34,18 @@ const Login = () => {
         const { data, error } = await supabase
         .from('Users')
         .select(`*`)
-        .eq('user_id', session.user.id)
+        .eq('user_id', String(session.user.id))
         .single()
 
         if(data) {
           setAuthenticatedUserData(data)
+          registerForPushNotificationsAsync(String(session.user?.id));
           router.replace('(tabs)')
         }
 
         if(error) {
           dispatch(setSystemNotificationState(true))
-          dispatch(setSystemNotificationData({ type: 'error', message: error.message }))
+          dispatch(setSystemNotificationData({ type: 'error', message: `A Problem Occured. Restart App` }))
           return;
         }
       }
@@ -47,6 +55,8 @@ const Login = () => {
         return;
       } 
     }
+
+
 
 
     const handleSignInWithApple = async () => {
@@ -74,9 +84,11 @@ const Login = () => {
             .single()
             if(data) {
               if(data.username === null) {
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(auth)/UsernameScreen')
               } else {
                 dispatch(setAuthenticatedUserData(data))
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(tabs)/')
               }
             } else {
@@ -90,6 +102,7 @@ const Login = () => {
                 dispatch(setSystemNotificationData({ type: 'error', message: 'Something went wrong' }))
                 return;
               } else {
+                registerForPushNotificationsAsync(String(user?.id));
                 router.replace('/(auth)/UsernameScreen')
               }
             }
@@ -160,6 +173,8 @@ const Login = () => {
     //   }
     // }
 
+
+
     return (
       <View style={styles.container}>
         <View style={styles.notificationContainer}>
@@ -189,12 +204,16 @@ const Login = () => {
           </TouchableOpacity>
         </View>
 
+          <TouchableOpacity onPress={() => router.push('/(auth)/ResetPasswordScreen')} style={styles.forgottenPasswordButton}>
+            <Text style={styles.forgottenPasswordText}>Forgotten Password</Text>
+          </TouchableOpacity>
+
         <View style={styles.footer}>
 
-          <TouchableOpacity style={styles.googleContainer}>
+          { Platform.OS === 'android' && <TouchableOpacity style={styles.googleContainer}>
             <Image style={styles.footerImage} source={require('../../../assets/images/google.png')}/>
             <Text style={styles.googleText}>Continue With Google</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
 
           { Platform.OS === 'ios' && <TouchableOpacity onPress={handleSignInWithApple} style={styles.appleContainer}>
             { appearanceMode.name === 'dark' && <Image style={styles.footerImage} source={require('../../../assets/images/applelightmode.png')}/>}

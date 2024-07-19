@@ -1,13 +1,13 @@
 import { Image, Platform, ScrollView, Text, View, TouchableOpacity, Linking } from 'react-native'
-import React, { useCallback, useEffect, useState } from 'react'
-import { chatType, userType } from '@/types'
+import React, { useEffect, useState } from 'react'
+import { chatType } from '@/types'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
 import getStyles from './styles'
-import { Feather } from '@expo/vector-icons'
+import {  Ionicons } from '@expo/vector-icons'
 import moment from 'moment'
 import { router } from 'expo-router'
-import Animated, {  FadeInRight, FlipInXDown, LightSpeedInRight, SlideInRight } from 'react-native-reanimated'
+import Animated, {  FadeInRight, LightSpeedInRight } from 'react-native-reanimated'
 import { addToUserCache, setReplyChat } from '@/state/features/chatSlice'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
@@ -15,79 +15,140 @@ import RemoteImage from '@/components/RemoteImage'
 import Hyperlink from 'react-native-hyperlink'
 import UrlPreview from '@/components/UrlPreview'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import RemoteVideo from '@/components/RemoteVideo'
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS, ResizeMode } from 'expo-av'
+import { BlurView } from 'expo-blur'
+import { randomUUID } from 'expo-crypto'
+import { setAudioState, setFullScreenSource, setShowFullScreen, togglePlayPause } from '@/state/features/mediaSlice'
 
 
-
-const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, convo_id, replyChat, user_id }:chatType) => {
+const ChatBox = ({ id, chat_id, Users, content, files, audio, dateCreated, convo_id, replyChat, user_id }:chatType) => {
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
-  const [user, setUser] = useState<userType>()
   const [userIsBlocked, setUserIsBlocked] = useState(false)
   const [userIsBlockedInReply, setUserIsBlockedInReply] = useState(false)
   const [urlPresent, setUrlPresent] = useState(false)
   const [url, setUrl] = useState('')
-  const userCache = useSelector((state:RootState) => state.chat.userCache)
   const dispatch = useDispatch()
   const styles = getStyles(appearanceMode)
   const formattedTime = moment.utc(dateCreated).local().format('HH:mm')
-  const formattedContent = content.startsWith('https://') ? content.toLowerCase() : `https://${content}`.toLowerCase()
-
-
-  const fetchUserData = useCallback(async () => {
-    if(userCache[user_id as string]) {
-      setUser(userCache[user_id as string])
-      return;
-    }
-
-    const { data, error } = await supabase
-    .from('Users')
-    .select('*')
-    .eq('user_id', String(user_id))
-    .single()
-    if(!error) {
-      setUser(data)
-      dispatch(addToUserCache({ [user_id as string]: data }))
-    } else {
-      console.log('problem occured fetching user data', error.message)
-    }
-  }, [user_id, userCache, dispatch])
+  const [profileAudio, setProfileAudio] = useState<string | null>(null)
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPaused, setIsPaused] = useState<boolean>(true)
+  const [chatAudio, setChatAudio] = useState<string | null>(null)
+  const audioState = useSelector((state:RootState) => state.media.audioState)
 
   
-  
-  const extractLink = () => {
-    const urlRegex = /\b(https?:\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
-    const matches = formattedContent.match(urlRegex);
-    
-    if (matches) {
-      const validMatches = matches.filter((url) => {
-        try {
-          const trimmedUrl = url.trim(); // Trim the URL to remove any leading or trailing spaces
-          new URL(trimmedUrl);
-          return true;
-        } catch (error) {
-          return false;
-        }
+  const playPauseAudio = async (audioType: 'profile' | 'chat', audioSource: string, chatId?: string) => {
+    try {
+      // Configure audio session
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
       });
-      if (validMatches.length > 0) {
-        setUrlPresent(true);
-        setUrl(validMatches[0].trim()); // Set the first valid URL after trimming
-      } else {
-        setUrlPresent(false); // No valid URLs found
-        setUrl(''); // Reset URL state
+  
+      // Stop all other playing sounds
+      await Audio.setIsEnabledAsync(false);
+      await Audio.setIsEnabledAsync(true);
+  
+      // Unload any existing sound
+      if (sound) {
+        // Check if switching between profile and chat
+        if ((audioType === 'chat' && audioState.currentlyPlayingAudioID === 'profile') ||
+            (audioType === 'profile' && audioState.currentlyPlayingAudioID !== 'profile')) {
+          dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'chat' ? chatId : 'profile', isPaused: true }));
+          await sound.unloadAsync();
+          setSound(null);
+        } else if (audioType === 'chat' && audioState.currentlyPlayingAudioID !== chatId) {
+          await sound.unloadAsync();
+          setSound(null);
+        } else if ((audioType === 'chat' && audioState.currentlyPlayingAudioID === chatId) ||
+                   (audioType === 'profile' && audioState.currentlyPlayingAudioID === 'profile')) {
+          if (isPaused) {
+            await sound.playAsync();
+            setIsPaused(false);
+            dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'chat' ? chatId : 'profile', isPaused: false }));
+          } else {
+            await sound.pauseAsync();
+            setIsPaused(true);
+            dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'chat' ? chatId : 'profile', isPaused: true }));
+          }
+          return; // Exit the function here as we've handled the play/pause
+        }
       }
-    } else {
-      setUrlPresent(false); // No URLs found
-      setUrl(''); // Reset URL state
+  
+      if (audioSource) {
+        const { sound: newSound } = await Audio.Sound.createAsync(
+          { uri: audioSource },
+          { shouldPlay: true }
+        );
+        setSound(newSound);
+        setIsPaused(false);
+  
+        if (audioType === 'chat' && chatId) {
+          dispatch(setAudioState({ currentlyPlayingAudioID: chatId, isPaused: false }));
+        }
+  
+        newSound.setOnPlaybackStatusUpdate(async (status: any) => {
+          if (status.didJustFinish) {
+            setIsPaused(true);
+            await newSound.setPositionAsync(0);
+            if (audioType === 'chat' && chatId) {
+              dispatch(setAudioState({ currentlyPlayingAudioID: chatId, isPaused: true }));
+            }
+          }
+        });
+      } else {
+        dispatch(setSystemNotificationState(true));
+        dispatch(setSystemNotificationData({ type: 'neutral', message: 'Nothing To Play' }));
+      }
+    } catch (error) {
+      dispatch(setSystemNotificationState(true));
+      dispatch(setSystemNotificationData({ type: 'error', message: `An Error Occured` }));
     }
   };
+  
+
+  const fetchAudioProfile = async () => {
+      try {
+          const { data } = await supabase.storage
+          .from('userfiles')
+          .getPublicUrl(String(Users?.audio));
+          if(data) {
+              setProfileAudio(data.publicUrl)
+          }
+      } catch (error) {
+          dispatch(setSystemNotificationState(true))
+          dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
+      }
+  }
 
   useEffect(() => {
-    fetchUserData()
+      if(Users?.audio) {
+          fetchAudioProfile()
+      }
+  }, [])
+  
+  const extractLink = () => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const match = content.match(urlRegex);
+    if (match && match[0]) {
+      setUrl(match[0]);
+      setUrlPresent(true);
+    } else {
+      setUrl('');
+      setUrlPresent(false);
+    }
+  };
+  
+
+  useEffect(() => {
     extractLink()
-  }, [fetchUserData, extractLink])
+  }, [extractLink])
   
   const handleOpenLink = async () => {
-    // Use the trimmed url state here
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);
@@ -98,17 +159,17 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
   };
   
   const handleProfileNavigation = () => {
-    dispatch(getUserData(userData))
+    dispatch(getUserData(Users))
     router.push({
       pathname: '/(profile)/[profileID]',
       params: {
-        profileID: userData.user_id
+        profileID: Users.user_id
       }
     })
   }
  
   const handleReplyChat = () => {
-    dispatch(setReplyChat({chat_id, content, convo_id, username: userData.username, user_id: userData.user_id }));
+    dispatch(setReplyChat({chat_id, content: audio ? `Voice note at ${formattedTime}` : content, convo_id, username: Users.username, user_id: Users.user_id }));
   }
 
   const checkBlockedUser = async () => {
@@ -116,7 +177,7 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
     .from('blockedUsers')
     .select('*')
     .eq('user_id', String(authenticatedUserData?.user_id))
-    .eq('blockedUserID', String(userData.user_id) || String(replyChat?.user_id))
+    .eq('blockedUserID', String(Users.user_id) || String(replyChat?.user_id))
     .single()
     if(data) {
       setUserIsBlocked(true)
@@ -139,34 +200,52 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
     if(data) {
       setUserIsBlockedInReply(true)
       } else setUserIsBlockedInReply(false)
-      }
+    }
   
   useEffect(() => {
     checkBlockedUser()
     checkBlockedUserInReplyBox()
   }, [])
 
+  const handleShowFullScreen = (file:string) => {
+    dispatch(setShowFullScreen(true))
+    dispatch(setFullScreenSource({file, convoStarter: String(content)}))
+    dispatch(togglePlayPause({ index: file + String(randomUUID()) }))
+  }
 
+  const getAudio = async () => {
+    const { data } = await supabase.storage
+    .from('userfiles')
+    .getPublicUrl(String(audio));
+    if(data) {
+      setChatAudio(data.publicUrl)
+    } else {
+      console.log('No data')
+    }
+  }
+
+
+  useEffect(() => {
+    if(audio) {
+      getAudio()
+    }
+  }, [audio])
 
   return (
     <>
       { !userIsBlocked && <Animated.View key={String(chat_id)} entering={Platform.OS === 'android' ? FadeInRight : LightSpeedInRight.springify().damping(20)} style={[styles.container]}>
+        <TouchableOpacity onPress={handleReplyChat}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleProfileNavigation} style={styles.headerLeft}>
-            {/* <RemoteImage path={userData?.profileImage} style={styles.profileImage}/> */}
-            <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-            { !user?.isRobot && <Text style={styles.username}>{user?.username}</Text>}
-            { user?.isRobot && <Text style={styles.username}>Dialogue Robot</Text>}
+          <TouchableOpacity onLongPress={() => playPauseAudio('profile', String(profileAudio), String(Users.user_id))} onPress={handleProfileNavigation} style={styles.headerLeft}>
+            { !Users?.isRobot && Users && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={`${Users?.username}-profileImage`} style={styles.profileImage}/>}
+            { !Users?.isRobot && <Text style={styles.username}>{Users?.username}</Text>}
+            { Users?.isRobot && <Text style={styles.username}>Dialogue Robot</Text>}
           </TouchableOpacity>
 
-          <View style={styles.headerRight}>
-            <TouchableOpacity>
-                { audio && <Feather name='volume-2' size={24} color={'gray'}/>}
-            </TouchableOpacity>
-          </View>
+          
         </View>
 
-        <TouchableOpacity onPress={handleReplyChat}>
+        <View>
           { replyChat && <TouchableOpacity style={styles.replyChatContainer}>
             <View style={styles.replyChatTextContainer}>
               <View style={styles.replyChatSideBar}/>
@@ -175,7 +254,6 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
                 <Text style={styles.replyChatUsername}>{replyChat?.username.split('-')[0]}</Text>
                 <Text numberOfLines={3} ellipsizeMode='tail' style={styles.replyChatContent}>{replyChat?.content}</Text>
               </View>}
-
               { userIsBlockedInReply && <View>
                 <Text style={styles.replyChatUsername}>{replyChat.username} is blocked</Text>
               </View>}
@@ -183,42 +261,84 @@ const ChatBox = ({ id, chat_id, audio, userData, content, files, dateCreated, co
           </TouchableOpacity>}
 
           <View style={styles.contentContainer}>
-            { files?.length === 1 && <View style={styles.mediaContainerView}>
-              <Image style={[styles.chatMedia, { width: '100%', marginBottom: 10 }]} source={{ uri: files[0] }} key={files[0]}/>
+            { files?.length === 1 && 
+            <View style={styles.mediaContainerView}>
+              {files[0].endsWith('.mp4') ?
+              <TouchableOpacity onPress={() => handleShowFullScreen(files[0])} style={{ width: '100%', alignItems: 'center', justifyContent: 'center'}}>
+                <View style={{ zIndex: 100, position: 'absolute', justifyContent: 'center' }}>
+                <BlurView style={{  borderRadius: 15, overflow: 'hidden', paddingHorizontal: 30, paddingVertical: 10  }}>
+                  <Text style={{ color: 'white', textAlign: 'center', fontFamily: 'extrabold', fontSize: 15 }}>Video</Text>
+                </BlurView>
+                </View>
+                <RemoteVideo 
+                resizeMode={ResizeMode.COVER} 
+                style={[styles.chatMedia, { width: '100%', marginBottom: 10 }]} 
+                path={files[0]} 
+                />
+              </TouchableOpacity> 
+               : 
+              <TouchableOpacity onPress={() => handleShowFullScreen(files[0])} style={{ width: '100%', alignItems: 'center', justifyContent: 'center'}}>
+                <RemoteImage style={[styles.chatMedia, { width: '100%', marginBottom: 10 }]} path={files[0]} key={files[0]}/>
+               </TouchableOpacity>
+               }
             </View>}
             {  files?.length && files?.length > 1 &&<ScrollView showsHorizontalScrollIndicator={false} style={{ borderRadius: 10, marginBottom: 10 }} horizontal>
               {
                 files?.map((file, index) => (
-                  <Image style={styles.chatMedia} source={{ uri: file }} key={index}/>
+                  <View key={index}>
+                   { file.endsWith('.mp4') ? 
+                   <TouchableOpacity onPress={() => handleShowFullScreen(file)} style={{ width: '100%', alignItems: 'center', justifyContent: 'center'}}>
+                   <View style={{ zIndex: 100, position: 'absolute', justifyContent: 'center' }}>
+                    <BlurView style={{  borderRadius: 15, overflow: 'hidden', paddingHorizontal: 30, paddingVertical: 10 }}>
+                      <Text style={{ color: 'white', textAlign: 'center', fontFamily: 'extrabold', fontSize: 15 }}>Video</Text>
+                    </BlurView>
+                   </View>
+                   <RemoteVideo 
+                   resizeMode={ResizeMode.COVER} 
+                   style={styles.chatMedia} 
+                   path={file} 
+                   />
+                 </TouchableOpacity>  
+                   :
+                    <TouchableOpacity onPress={() => handleShowFullScreen(file)}  key={index}>
+                      <RemoteImage style={styles.chatMedia} path={file}/>
+                    </TouchableOpacity>}
+                  </View>
                 ))
               }
             </ScrollView>}
-            <View>
-              <Hyperlink linkDefault={true} linkStyle={{ color: appearanceMode.primary }}>
-                <Text style={styles.chat}>{content}</Text>
-              </Hyperlink>
-              { urlPresent && 
-                <TouchableOpacity onPress={handleOpenLink} style={{}}>
-                  <UrlPreview url={url}/>
+            {audio && (
+                <TouchableOpacity onPress={() => playPauseAudio('chat', String(chatAudio), String(chat_id))} style={styles.playAudioContainer}>
+                    { audioState.currentlyPlayingAudioID === String(chat_id) && <Ionicons name={ audioState.isPaused ? 'mic' : 'pause'} size={24} color={appearanceMode.primary} />}
+                    { audioState.currentlyPlayingAudioID !== String(chat_id) && <Ionicons name={'mic'} size={24} color={appearanceMode.primary} />}
+
                 </TouchableOpacity>
-                }
-            </View>
+              )}
+              <View>
+                <Hyperlink linkDefault={true} linkStyle={{ color: appearanceMode.primary }}>
+                  <Text style={styles.chat}>{content}</Text>
+                </Hyperlink>
+                { urlPresent && 
+                  <TouchableOpacity onPress={handleOpenLink} style={{}}>
+                    <UrlPreview url={url}/>
+                  </TouchableOpacity>
+                  }
+              </View>
           </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>{ formattedTime }</Text>
+         </View>
         </View>
         </TouchableOpacity>
-
       </Animated.View>}
 
       { userIsBlocked && 
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingVertical: 30 }]}>
-          <Text style={{ color: appearanceMode.textColor, fontFamily: 'extrabold' }}>{userData.username} is blocked</Text>
+          <Text style={{ color: appearanceMode.textColor, fontFamily: 'extrabold' }}>{Users.username} is blocked</Text>
         </View>}
       </>
   )
 }
 
 export default ChatBox
-

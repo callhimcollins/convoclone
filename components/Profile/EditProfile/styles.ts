@@ -19,7 +19,7 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             padding: 10
         },
         contentContainer: {
-            paddingTop: 100
+            paddingTop: 100,
         },
         profileBackgroundImageButton: {
             backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -204,8 +204,7 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             width: 8,
             borderRadius: 10,
             backgroundColor: appearanceMode.primary,
-            marginHorizontal: 1,
-            
+            marginHorizontal: 1,  
         },
         notificationContainer: {
             backgroundColor: 'transparent', 

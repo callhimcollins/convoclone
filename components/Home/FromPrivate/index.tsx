@@ -7,7 +7,7 @@ import { convoType, userType } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { router } from 'expo-router'
 import { getUserData } from '@/state/features/userSlice'
-import { addToUserCache, getConvoForChat } from '@/state/features/chatSlice'
+import { addToUserCache, getConvoForChat, setConvoExists } from '@/state/features/chatSlice'
 import { Skeleton } from 'moti/skeleton'
 
 const FromPrivate = (convo: convoType) => {
@@ -48,6 +48,7 @@ const FromPrivate = (convo: convoType) => {
     }, [user, router, convo.user_id, dispatch])
 
     const handleChatNavigation = useCallback(() => {
+        dispatch(setConvoExists(null))
         dispatch(getConvoForChat(convo))
         router.push({
             pathname: '/(chat)/[convoID]',

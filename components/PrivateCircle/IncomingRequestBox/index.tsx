@@ -73,11 +73,11 @@ const IncomingRequestBox = ({senderUserData, sender_id, type,}:privateCircleType
                 console.log("Invite Acceptance notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', senderUserData?.user_id)
                 .single()
                 if(data) {
-                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} is now a part of your Private Circle`)
+                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} is now a part of your Private Circle`, 'profile', authenticatedUserData, null, data.user_id)
                 }
             } else {
                 console.log("Couldn't send invite acceptance notification", error.message)
@@ -107,12 +107,11 @@ const IncomingRequestBox = ({senderUserData, sender_id, type,}:privateCircleType
                 console.log("Acceptance notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', senderUserData?.user_id)
                 .single()
                 if(data) {
-                    console.log(data)
-                    sendPushNotification(data.pushToken, 'Private', `You are now a part of ${authenticatedUserData?.username}'s Private Circle`)
+                    sendPushNotification(data.pushToken, 'Private', `You are now a part of ${authenticatedUserData?.username}'s Private Circle`, 'profile', authenticatedUserData, null, data.user_id)
                 }
             } else {
                 console.log("Couldn't send acceptance notification", error.message)

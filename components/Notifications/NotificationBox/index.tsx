@@ -5,11 +5,12 @@ import getStyles from './styles'
 import { RootState } from '@/state/store'
 import { notificationType } from '@/types'
 import { router } from 'expo-router'
-import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
+import { getConvoForChat, setConvoExists, setReplyChat } from '@/state/features/chatSlice'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
 import moment from 'moment'
 import { sendPushNotification } from '@/pushNotifications'
+import { setActiveTab } from '@/state/features/navigationSlice'
 
 const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data, senderUserData, seen, dateCreated }: notificationType) => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
@@ -34,6 +35,7 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
     }
 
     const handleReplyChatNavigation = async () => {
+        dispatch(setConvoExists(null))
         dispatch(getConvoForChat(convo))
         dispatch(setReplyChat({
             content: data?.content, 
@@ -51,11 +53,12 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
     }
 
     const handleChatNavigation = async () => {
-        dispatch(getConvoForChat(data))
+        dispatch(setConvoExists(null))
+        dispatch(getConvoForChat(data || convo))
         router.push({
             pathname: '(chat)/[convoID]',
             params: {
-                convoID: String(convo?.convo_id)
+                convoID: String(data?.convo_id || convo?.convo_id)
             }
         })
     }
@@ -113,11 +116,11 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                 console.log("Acceptance notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', senderUserData?.user_id)
                 .single()
                 if(data) {
-                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} accepted your private circle request`)
+                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} accepted your private circle request`, 'profile', authenticatedUserData, null, senderUserData?.user_id)
                 }
             } else {
                 console.log("Couldn't send acceptance notification", error.message)
@@ -148,11 +151,11 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                 console.log("Invite Acceptance notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', senderUserData?.user_id)
                 .single()
                 if(data) {
-                    sendPushNotification(data.pushToken, 'Private', `You are now a part of ${authenticatedUserData?.username}'s Private Circle`)
+                    sendPushNotification(data.pushToken, 'Private', `You are now a part of ${authenticatedUserData?.username}'s Private Circle`, 'profile', authenticatedUserData, null, data.user_id)
                 }
             } else {
                 console.log("Couldn't send invite acceptance notification", error.message)
@@ -217,6 +220,9 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
         })
     }
 
+    const handleDiscover = () => {
+        dispatch(setActiveTab(1))
+    }
 
 
     const renderNotificationBox = () => {
@@ -314,7 +320,7 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                 <TouchableOpacity onPress={handleReplyChatNavigation} style={[styles.container, !seen && { backgroundColor: 'rgba(98, 95, 224, 0.4)' }]}>
                     <View style={styles.replyInfoContainer}>
                         <Image style={styles.profileImage} source={require('@/assets/images/blankprofile.png')}/>
-                        <Text style={styles.replyInfo}><Text style={styles.replyUsername}>{ data?.userData.username }</Text> replied to your chat in <Text style={styles.replyConvoStarter}>{ convo?.convoStarter }</Text></Text>
+                        <Text style={styles.replyInfo}><Text style={styles.replyUsername}>{ senderUserData?.username }</Text> replied to your chat in <Text style={styles.replyConvoStarter}>{ convo?.convoStarter }</Text></Text>
                     </View>
 
                     <View style={{ backgroundColor: seen ? appearanceMode.faint : 'rgba(98, 95, 224, 0.2)', padding: 5, marginTop: 15, borderRadius: 5, marginHorizontal: 15 }}>
@@ -363,13 +369,40 @@ const NotificationBox = ({ topic, from, type, convo, message, convoStarter, data
                     <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }} >Private</Text>
                     <View style={styles.keepupContentContainer}>
                         <Image source={require('@/assets/images/blankprofile.png')} style={styles.keepupUserImage}/>
-                        <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}>{ senderUserData?.username }</Text> accepted your invite</Text>
+                        <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}>{ senderUserData.username }</Text> accepted your invite</Text>
                     </View>
 
                     <View style={styles.dateContainer}>
                         <Text style={styles.date}>{moment(dateCreated).fromNow()}</Text>
                     </View>
                 </TouchableOpacity>
+            )
+        } else if(type === 'highlights') {
+            return (
+            <View style={[styles.container, !seen && { backgroundColor: 'rgba(98, 95, 224, 0.4)' }]}>
+                <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }} >Highlights</Text>
+                <View style={styles.keepupContentContainer}>
+                    <Image source={require('@/assets/images/logo.png')} style={styles.keepupUserImage}/>
+                    <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}>There are new highlights { authenticatedUserData?.username }!</Text> </Text>
+                </View>
+
+                <View style={styles.dateContainer}>
+                    <Text style={styles.date}>{moment(dateCreated).fromNow()}</Text>
+                </View>
+            </View>
+            )
+        } else if(type === 'discover') {
+            return (
+            <TouchableOpacity onPress={handleDiscover} style={[styles.container, !seen && { backgroundColor: 'rgba(98, 95, 224, 0.4)' }]}>
+                <Text style={{ fontFamily: 'extrabold', color: appearanceMode.textColor, marginBottom: 10, fontSize: 16  }} >Discover: {data?.title}</Text>
+                <View style={styles.keepupContentContainer}>
+                    <Image source={require('@/assets/images/logo.png')} style={styles.keepupUserImage}/>
+                    <Text style={styles.keepupMessage}><Text style={styles.keepupUsername}></Text>{data?.caption}</Text>
+                </View>
+                <View style={styles.dateContainer}>
+                    <Text style={styles.date}>{moment(dateCreated).fromNow()}</Text>
+                </View>
+            </TouchableOpacity>
             )
         }
     }

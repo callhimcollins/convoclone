@@ -9,12 +9,11 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         container: {
             backgroundColor: Platform.OS === 'android' ? appearanceMode.backgroundColor : appearanceMode.backgroundTransparent,
             width: '100%',
-            height: DEVICE_HEIGHT + 50,
+            height: DEVICE_HEIGHT,
             alignItems: 'center',
             paddingTop: Platform.OS === 'ios' ? 120 : 80,
             paddingBottom: Platform.OS === 'ios' ? 100 : 0,
             marginBottom: Platform.OS === 'android' ? 90 : 0,
-            borderRadius: 20,
             paddingHorizontal: 10,
             overflow: 'hidden'
         },

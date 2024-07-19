@@ -101,65 +101,71 @@ const ProfileFeed = (user: userType, chats: chatType) => {
                 <KeyboardAvoidingView behavior={ Platform.OS === 'ios'? 'padding' : 'height' }>
                 { activeTab === 'Convos' && user.convos && <FlatList
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<ProfileDetail links={user.links} username={user.username} bio={user.bio} id={user.id}/>}
+                ListHeaderComponent={<ProfileDetail backgroundProfileImage={user.backgroundProfileImage} audio={user.audio} links={user.links} username={user.username} bio={user.bio} id={user.id}/>}
                 data={user.convos}
                 keyExtractor={(convo) => String(convo.id)}
-                renderItem={(convo) => { 
+                renderItem={({item, index}) => { 
                     return (<Convo
-                        link={convo.item.link}
-                        user_id={convo.item.user_id}
-                        lastChat={convo.item.lastChat}
-                        convo_id={convo.item.convo_id} 
-                        dateCreated={convo.item.dateCreated} 
-                        activeInRoom={convo.item.activeInRoom} 
-                        userData={convo.item.userData} 
-                        id={convo.item.id} 
-                        files={convo.item.files} 
-                        numberOfKeepUps={convo.item.numberOfKeepUps} 
-                        convoStarter={convo.item.convoStarter}
-                        dialogue={convo.item.dialogue}
+                        link={item.link}
+                        user_id={item.user_id}
+                        lastChat={item.lastChat}
+                        convo_id={item.convo_id} 
+                        dateCreated={item.dateCreated} 
+                        activeInRoom={item.activeInRoom} 
+                        Users={item.Users} 
+                        id={item.id} 
+                        files={item.files} 
+                        numberOfKeepUps={item.numberOfKeepUps} 
+                        convoStarter={item.convoStarter}
+                        dialogue={item.dialogue}
+                        audio={item.audio}
+                        mediaIndex={index + .1}
                         />)}}
                 />}
                 { activeTab === 'Private' && user.convos && userIsInPrivateCircle && <FlatList
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<ProfileDetail links={user.links} username={user.username} bio={user.bio} id={user.id}/>}
+                ListHeaderComponent={<ProfileDetail backgroundProfileImage={user.backgroundProfileImage} audio={user.audio} links={user.links} username={user.username} bio={user.bio} id={user.id}/>}
                 data={user.convos}
                 keyExtractor={(convo) => String(convo.id)}
-                renderItem={(convo) => { 
+                renderItem={({item, index}) => { 
                     return (<Convo 
-                        link={convo.item.link}
-                        user_id={convo.item.user_id}
-                        lastChat={convo.item.lastChat}
-                        convo_id={convo.item.convo_id} 
-                        dateCreated={convo.item.dateCreated} 
-                        activeInRoom={convo.item.activeInRoom} 
-                        userData={convo.item.userData} 
-                        id={convo.item.id} 
-                        files={convo.item.files} 
-                        numberOfKeepUps={convo.item.numberOfKeepUps} 
-                        convoStarter={convo.item.convoStarter}
-                        dialogue={convo.item.dialogue}
+                        link={item.link}
+                        user_id={item.user_id}
+                        lastChat={item.lastChat}
+                        convo_id={item.convo_id} 
+                        dateCreated={item.dateCreated} 
+                        activeInRoom={item.activeInRoom} 
+                        Users={item.Users} 
+                        id={item.id} 
+                        files={item.files} 
+                        numberOfKeepUps={item.numberOfKeepUps} 
+                        convoStarter={item.convoStarter}
+                        dialogue={item.dialogue}
+                        audio={item.audio}
+                        mediaIndex={index + .1}
                         />)}}
                 />}
                 { activeTab === 'Private' && user.convos && authenticatedUserData?.user_id === profileID && <FlatList
                 showsVerticalScrollIndicator={false}
-                ListHeaderComponent={<ProfileDetail username={user.username} bio={user.bio} id={user.id}/>}
+                ListHeaderComponent={<ProfileDetail backgroundProfileImage={user.backgroundProfileImage} audio={user.audio} links={user.links} username={user.username} bio={user.bio} id={user.id}/>}
                 data={user.convos}
                 keyExtractor={(convo) => String(convo.id)}
-                renderItem={(convo) => { 
+                renderItem={({item, index}) => { 
                     return (<Convo 
-                        link={convo.item.link}
-                        lastChat={convo.item.lastChat}
-                        convo_id={convo.item.convo_id} 
-                        user_id={convo.item.user_id}
-                        dateCreated={convo.item.dateCreated} 
-                        activeInRoom={convo.item.activeInRoom} 
-                        userData={convo.item.userData} 
-                        id={convo.item.id} 
-                        files={convo.item.files} 
-                        numberOfKeepUps={convo.item.numberOfKeepUps} 
-                        convoStarter={convo.item.convoStarter}
-                        dialogue={convo.item.dialogue}
+                        link={item.link}
+                        lastChat={item.lastChat}
+                        convo_id={item.convo_id} 
+                        user_id={item.user_id}
+                        dateCreated={item.dateCreated} 
+                        activeInRoom={item.activeInRoom} 
+                        Users={item.Users} 
+                        id={item.id} 
+                        files={item.files} 
+                        numberOfKeepUps={item.numberOfKeepUps} 
+                        convoStarter={item.convoStarter}
+                        dialogue={item.dialogue}
+                        audio={item.audio}
+                        mediaIndex={index + .1}
                         />)}}
                 />}
 

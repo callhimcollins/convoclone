@@ -1,4 +1,4 @@
-import { Text, View, Image, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Dimensions } from 'react-native'
+import { Text, View, Image, TouchableOpacity, TextInput, Dimensions } from 'react-native'
 import getStyles from './styles'
 import { useDispatch, useSelector } from 'react-redux'
 import React, { useEffect, useState } from 'react'
@@ -13,7 +13,6 @@ import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import * as FileSystem from 'expo-file-system'
 import { decode } from 'base64-arraybuffer'
-import { randomUUID } from 'expo-crypto'
 import { Audio } from 'expo-av'
 import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
 import SystemNotification from '@/components/Notifications/SystemNotifications'
@@ -89,62 +88,68 @@ const EditProfile = () => {
     
 
       const startRecording = async () => {
-        try {
-            await Audio.requestPermissionsAsync();
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: true,
-                playsInSilentModeIOS: true
-            });
+          try {
+            dispatch(setSystemNotificationState(true))
+            dispatch(setSystemNotificationData({ type: 'neutral', message: "For The Best Experience, Keep Your Recording Short"}))
+              await Audio.requestPermissionsAsync();
+              await Audio.setAudioModeAsync({
+                  allowsRecordingIOS: true,
+                  playsInSilentModeIOS: true
+              });
+      
+              const { recording } = await Audio.Recording.createAsync(
+                  Audio.RecordingOptionsPresets.HIGH_QUALITY,
+                  onRecordingStatusUpdate,
+                  100 // Update every 100ms
+              );
+              setRecording(recording);
+              setIsRecordingState(true)
+              recordContainerHeight.value = withTiming(50);
+              recordContainerOpacity.value = withTiming(1);
+              // If there's an existing sound, unload it
+              if (sound) {
+                  await sound.unloadAsync();
+                  setSound(null);
+              }
+      
+              // Set a timeout to stop the recording after MAX_RECORDING_DURATION
+                
+          } catch (error) {
+              console.log('Failed To Start Recording', error);
+          }
+      };
+      
+      const stopAndSaveRecording = async () => {
+          if (!recording) return;
+      
+          try {
 
-
-            const { recording } = await Audio.Recording.createAsync(
-                Audio.RecordingOptionsPresets.HIGH_QUALITY,
-                onRecordingStatusUpdate,
-                100 // Update every 100ms
-            );
-            setRecording(recording);
-            setIsRecordingState(true)
-            recordContainerHeight.value = withTiming(50);
-            recordContainerOpacity.value = withTiming(1);
-            // If there's an existing sound, unload it
-            if (sound) {
-                await sound.unloadAsync();
-                setSound(null);
-            }
-        } catch (error) {
-            console.log('Failed To Start Recording', error);
-        }
-    };
-    
-    const stopAndSaveRecording = async () => {
-        if (!recording) return;
-
-        try {
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            setRecordingUri(uri)
-            setRecording(null);
-
-            recordContainerHeight.value = withTiming(0);
-            recordContainerOpacity.value = withTiming(0);
-
-            await Audio.setAudioModeAsync({
-                allowsRecordingIOS: false,
-                playsInSilentModeIOS: false,
-                staysActiveInBackground: false,
-                shouldDuckAndroid: false,
-                playThroughEarpieceAndroid: false,
-            });
-
-            // Create a new sound object with the latest recording
-            const { sound: newSound } = await Audio.Sound.createAsync({ uri });
-            setSound(newSound);
-            setIsPaused(true);
-            setIsRecordingState(false)
-        } catch (error) {
-            console.error("Error stopping the recording:", error);
-        }
-    };
+              await recording.stopAndUnloadAsync();
+              const uri = recording.getURI();
+              setRecordingUri(uri)
+              setRecording(null);
+      
+              recordContainerHeight.value = withTiming(0);
+              recordContainerOpacity.value = withTiming(0);
+      
+              await Audio.setAudioModeAsync({
+                  allowsRecordingIOS: false,
+                  playsInSilentModeIOS: true,
+                  staysActiveInBackground: false,
+                  shouldDuckAndroid: false,
+                  playThroughEarpieceAndroid: false,
+              });
+      
+              // Create a new sound object with the latest recording
+              const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+              setSound(newSound);
+              setIsPaused(true);
+              setIsRecordingState(false)
+          } catch (error) {
+              console.error("Error stopping the recording:", error);
+          }
+      };
+      
     
 
     const playRecording = async () => {
@@ -204,28 +209,22 @@ const EditProfile = () => {
         if(!selectedProfileImage?.uri?.startsWith('file')) {
             return;
         }
-
-        const { data:userData, error: userError } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('user_id', authenticatedUserData?.user_id)
-        .single()
-        if(userData) {
+        if(authenticatedUserData) {
             const base64 = await FileSystem.readAsStringAsync(selectedProfileImage.uri, { encoding: 'base64' })
-            const filepath = `${userData.profileImage}`;
+            const filepath = `${authenticatedUserData?.username}-profileImage`;
             const contentType = 'image/png';
             const { data, error } = await supabase
             .storage
-            .from('files')
+            .from('userfiles')
             .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
             if(data) {
-                console.log("Image uploaded", data.path)
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'success', message: "Image Updated. Update Will Not Reflect Instantly"}))                
                 return (data.path)
             } else if(error) {
-                console.log("error uploading image", error.message)
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
             }
-        } else {
-            console.log("Error getting user data", userError?.message)
         }
     }
 
@@ -234,57 +233,64 @@ const EditProfile = () => {
         if(!selectedProfileBackground?.uri?.startsWith('file')) {
             return;
         }
-        const { data:userData, error: userError } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('user_id', authenticatedUserData?.user_id)
-        .single()
-        if(userData) {
-            if(userData.backgroundProfileImage) {
-                const base64 = await FileSystem.readAsStringAsync(selectedProfileBackground.uri, { encoding: 'base64' })
-                const filepath = `${userData.backgroundProfileImage}`;
-                const contentType = 'image/png';
-                const { data, error } = await supabase
-                .storage
-                .from('files')
-                .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
-                if(data) {
-                    const { error } = await supabase
+        if(authenticatedUserData) {
+            const base64 = await FileSystem.readAsStringAsync(selectedProfileBackground.uri, { encoding: 'base64' })
+            const filepath = `${authenticatedUserData.username}-backgroundProfileImage`;
+            const contentType = 'image/png';
+            const { data, error } = await supabase
+            .storage
+            .from('userfiles')
+            .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
+            if(data) {
+                console.log('Uploaded in database')
+                if(!authenticatedUserData.backgroundProfileImage) {
+                    const { error:updateError } = await supabase
                     .from('Users')
-                    .update({ backgroundProfileImage: data.path })
-                    .eq('user_id', userData?.user_id)
-                    .single()
-                    if(!error) {
-                        console.log("Profile background successfully uploaded")
+                    .update({ backgroundProfileImage: `${authenticatedUserData.username}-backgroundProfileImage`})
+                    .eq('user_id', String(authenticatedUserData?.user_id))
+                    if(!updateError) {
+                        dispatch(setSystemNotificationState(true))
+                        dispatch(setSystemNotificationData({ type: 'success', message: "Image Updated. Update Will Not Reflect Instantly"}))
                     } else {
-                        console.log("Problem uploading profile background", error.message)
-                    }
-                } else if(error) {
-                    console.log("error uploading profile background", error.message)
+                        dispatch(setSystemNotificationState(true))
+                        dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))}
                 }
-            } else {
-                const base64 = await FileSystem.readAsStringAsync(selectedProfileBackground.uri, { encoding: 'base64' })
-                const filepath = `Users/${userData.user_id}/${randomUUID()}-background.png`;
-                const contentType = 'image/png';
-                const { data } = await supabase
-                .storage
-                .from('files')
-                .upload(filepath, decode(base64), { contentType })
-                if(data) {
-                    const { error } = await supabase
-                    .from('Users')
-                    .update({ backgroundProfileImage: data.path })
-                    .eq('user_id', userData?.user_id)
-                    .single()
-                    if(!error) {
-                        console.log("Profile background successfully uploaded")
-                    } else {
-                        console.log("Problem uploading profile background", error.message)
-                    }
-                }
+            } else if(error) {
+                console.log("error uploading profile background", error.message)
             }
         } else {
-            console.log("Error getting user data", userError?.message)
+            return;
+        }
+    }
+
+    const uploadAudioProfile = async () => {
+        if(!recordingUri?.startsWith('file')) {
+            return;
+        }
+        if(authenticatedUserData) {
+            const base64 = await FileSystem.readAsStringAsync(recordingUri, { encoding: 'base64' })
+            const filepath = `${authenticatedUserData.username}-audioProfile`;
+            const contentType = 'audio/mpeg'
+            const { data, error } = await supabase
+            .storage
+            .from('userfiles')
+            .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
+            if(data) {
+                console.log('Uploaded in database')
+                if(!authenticatedUserData.audio) {
+                    const { error:updateError } = await supabase
+                    .from('Users')
+                    .update({ audio: `${authenticatedUserData.username}-audioProfile`})
+                    .eq('user_id', String(authenticatedUserData?.user_id))
+                    if(!updateError) {
+                        console.log("Updated profile background in database")
+                    } else {
+                        console.log("Couldn't update profile background in database")
+                    }
+                }
+            } else if(error) {
+                console.log("error uploading profile background", error.message)
+            }
         }
     }
 
@@ -495,6 +501,9 @@ const EditProfile = () => {
             if(selectedProfileBackground !== null) {
                 await uploadProfileBackground()
             }
+            if(recordingUri !== '') {
+                await uploadAudioProfile();
+            }
         } catch (error) {
             
         } finally {
@@ -530,16 +539,15 @@ const EditProfile = () => {
             <View style={styles.notificationContainer}>
                 <SystemNotification/>
               </View>
-            <KeyboardAwareScrollView style={styles.contentContainer}>
+            <KeyboardAwareScrollView  style={styles.contentContainer}>
                 <View>
                     <View style={styles.profileBackgroundImageContainer}>
                         <TouchableOpacity onPress={pickProfileBackground} style={styles.profileBackgroundImageButton}>
                             <Text style={styles.profileBackgroundImageButtonText}>Change</Text>
                         </TouchableOpacity>
-                        { !selectedProfileBackground && <RemoteImage style={styles.profileBackgroundImage} path={authenticatedUserData?.backgroundProfileImage}/>}
+                        { !selectedProfileBackground && <RemoteImage skeletonHeight={styles.profileBackgroundImage.height} skeletonWidth={Dimensions.get('window').width * .95} style={styles.profileBackgroundImage} path={authenticatedUserData?.backgroundProfileImage}/>}
                         { selectedProfileBackground && <Image style={styles.profileBackgroundImage} source={{ uri: selectedProfileBackground.uri }}/>}
                     </View>
-
                     <TouchableOpacity style={[styles.removeImageButton, { marginHorizontal: 10, justifyContent: 'center', alignItems: 'center' }]}>
                         <Text style={styles.removeImageButtonText}>Remove Image</Text>
                     </TouchableOpacity>
@@ -550,7 +558,7 @@ const EditProfile = () => {
                         <TouchableOpacity onPress={pickProfileImage} style={styles.profileImageButton}>
                             <Text style={styles.profileImageButtonText}>Change</Text>
                         </TouchableOpacity>
-                        { !selectedProfileImage && <RemoteImage style={styles.profileImage} path={authenticatedUserData?.profileImage}/>}
+                        { !selectedProfileImage && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} style={styles.profileImage} path={`${authenticatedUserData?.username}-profileImage`}/>}
                         { selectedProfileImage && <Image style={styles.profileImage} source={{ uri: selectedProfileImage.uri }}/> }
                     </View>
 

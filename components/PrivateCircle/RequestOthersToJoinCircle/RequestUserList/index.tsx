@@ -90,11 +90,11 @@ const RequestUserList = (user: userType) => {
                 console.log("Request notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', user.user_id)
                 .single()
                 if(data) {
-                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} is inviting you to join their Private Circle`)
+                    sendPushNotification(data.pushToken, 'Private', `${authenticatedUserData?.username} is inviting you to join their Private Circle`, 'profile', authenticatedUserData, null, data.user_id)
                 }
             } else {
                 console.log("Problem sending notification")

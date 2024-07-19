@@ -3,6 +3,8 @@ import { Dimensions, Platform, StyleSheet } from "react-native";
 import BottomSheet from ".";
 
 const DEVICE_HEIGHT = Dimensions.get('window').height
+const DEVICE_WIDTH = Dimensions.get('window').width
+
 const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
     return StyleSheet.create({
         backgroundContainer: {
@@ -20,6 +22,12 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             padding: 20,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20
+        },
+        progressBar: {
+            height: 3, 
+            backgroundColor: appearanceMode.primary, 
+            borderRadius: 20, 
+            marginBottom: 5
         },
         bottomSheetHeader: {
             width: 35,
@@ -68,6 +76,28 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             alignItems: 'center',
             justifyContent:'space-around',
             width: '100%',
+        },
+        afterRecordContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            width: DEVICE_WIDTH-85,
+            gap: 15
+        },
+        playRecord: {
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            width: '80%',
+            paddingVertical: 10,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: 10,
+        },
+        playText: {
+            color: appearanceMode.primary,
+            fontFamily: 'extrabold',
+        },
+        delete: {
+            width: 30,
+            height: 30
         },
         recordButton: {
             borderRadius: 10, 
@@ -214,7 +244,7 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
         },
         image: {
             width: Platform.OS === 'ios' ? 350 : 280,
-            height: 600,
+            height: 300,
             resizeMode: 'cover',
             marginRight: 10,
             borderRadius: 10
@@ -224,8 +254,9 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             zIndex: 100,
             justifyContent: 'center',
             alignItems: 'center',
+            overflow: 'hidden',
             width: Platform.OS === 'ios' ? 350 : 280,
-            height: 600,
+            height: 300,
         },
         playButton: {
             padding: 20,
@@ -234,15 +265,45 @@ const getStyles = (appearanceMode: appearanceStateType, height:Number) => {
             justifyContent: 'center',
             alignItems: 'center',
         },
+        playButtonIcon: {
+            padding: 13,
+            overflow: 'hidden',
+            borderRadius: 10
+        },
         playButtonImage: {
-            width: 30,
-            height: 30
+            width: 25,
+            height: 25
         },
         video: {
             width: Platform.OS === 'ios' ? 350 : 280,
-            height: 600,
+            height: 300,
             marginRight: 10,
             borderRadius: 10,
+        },
+        removeMediaText: {
+            textAlign: 'center',
+            marginTop: 20,
+            color: appearanceMode.secondary,
+            fontFamily: 'extrabold',
+            
+        },
+        visualizer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 10,
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            padding: 5,
+            marginVertical: 23,
+            gap: 3,
+            width: '100%'
+        },
+        bar: {
+            width: 5,
+            borderRadius: 10,
+            backgroundColor: appearanceMode.primary,
+            marginHorizontal: 1,
+            maxHeight: 8
         },
     })
 }

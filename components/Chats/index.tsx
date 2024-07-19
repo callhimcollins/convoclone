@@ -1,17 +1,18 @@
-import React, { useEffect } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { GestureHandlerRootView, PanGestureHandler, PanGestureHandlerGestureEvent } from 'react-native-gesture-handler'
 import ChatHeader from './ChatHeader'
 import ChatFooter from './ChatFooter'
 import ChatList from './ChatList'
-import { Text, View, StyleSheet, Dimensions, TouchableOpacity, Easing } from 'react-native'
+import { View, StyleSheet, Dimensions, TouchableOpacity } from 'react-native'
 import NotificationPopUp from '../Notifications/NotificationPopUp'
 import HeaderPopUp from './ChatHeader/HeaderPopUp'
 import SystemNotification from '../Notifications/SystemNotifications'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
 import Animated, { runOnJS, useAnimatedGestureHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
-import { BlurView } from 'expo-blur'
 import { setShowModal } from '@/state/features/chatSlice'
+import MediaFullScreen from '../MediaFullScreen'
+import { useRootNavigationState } from 'expo-router'
 
 const DEVICE_HEIGHT = Dimensions.get('window').height
 const DEVICE_WIDTH = Dimensions.get('window').width
@@ -26,15 +27,31 @@ const Chats = () => {
   const popUpVisibility = useSharedValue(DEVICE_HEIGHT)
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const dispatch = useDispatch()
+  const showFullScreenMedia = useSelector((state: RootState) => state.media.showFullScreen)
+  const navigationState = useRootNavigationState() as any
+  const currentRoute = navigationState?.routes[navigationState.index]?.name ?? undefined;
+  const mediaPosition = useSharedValue(DEVICE_HEIGHT)
+  const mediaOpacity = useSharedValue(2)
   const animatedPopUpStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateY: popUpVisibility.value+50 }]
+      transform: [{ translateY: popUpVisibility.value+19 }]
+    }
+  })
+
+  const animatedMediaStyles = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: mediaPosition.value
+        }
+      ],
+      opacity: mediaOpacity.value
     }
   })
 
   useEffect(() => {
     if(showModal) {
-      popUpVisibility.value = withTiming(0, { duration: 300 })
+      popUpVisibility.value = withTiming(25, { duration: 300 })
     }
   }, [showModal])
 
@@ -54,7 +71,7 @@ const Chats = () => {
         popUpVisibility.value = withTiming(DEVICE_HEIGHT, { duration: 500 })
         runOnJS(dismissModal)(false)
       } else {
-        popUpVisibility.value = withSpring(0, { damping: 100,
+        popUpVisibility.value = withSpring(20, { damping: 100,
       stiffness: 100,
       overshootClamping: false,
       restSpeedThreshold: 0.01,
@@ -65,8 +82,20 @@ const Chats = () => {
   })
 
 
+  useEffect(() => {
+    if(showFullScreenMedia) {
+      mediaPosition.value = withTiming(0)
+    } else {
+      mediaPosition.value = withTiming(DEVICE_HEIGHT)
+      
+    }
+  }, [showFullScreenMedia])
+
   return (
     <GestureHandlerRootView>
+      { showFullScreenMedia && currentRoute !== '(profile)' && <Animated.View style={[styles.mediaContainer, animatedMediaStyles, { display: showFullScreenMedia ? 'flex' : 'none' }]}>
+        <MediaFullScreen />
+      </Animated.View>}
       <View style={styles.notificationContainer}>
         <NotificationPopUp/>
       </View>
@@ -106,5 +135,9 @@ const styles = StyleSheet.create({
     height: DEVICE_HEIGHT,
     zIndex: 200,
     justifyContent: 'center',
+  },
+  mediaContainer: {
+    position: 'absolute', 
+    zIndex: 500
   }
 })

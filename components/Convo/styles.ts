@@ -17,8 +17,8 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
         alignItems: 'center',
     },
     userImage: {
-        width: 40,
-        height: 40,
+        width: 45,
+        height: 45,
         borderRadius: 10
     },
     username: {
@@ -46,11 +46,11 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
     },
     imageScrollView: {
         width: '100%', 
-        height: 500,
+        height: 310,
     },
     image: {
-        width: Platform.OS === 'ios' ? 370 : 300,
-        height: 490,
+        width: Platform.OS === 'ios' ? 250 : 300,
+        height: 300,
         borderRadius: 10,
     },
     mediaControlContainer: {
@@ -58,26 +58,34 @@ export const getStyles = (appearanceMode: appearanceStateType) => {
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 100,
-        padding: 20,
+        padding: 10,
         overflow: 'hidden',
         borderRadius: 20,
-        width: 380,
-        height: 500
+        width: 250,
+        height: 300
     },
     mediaButtonBackdrop: {
-        padding: 20,
+        padding: 15,
         borderRadius: 20,
         overflow: 'hidden'
     },
     playImage: {
-        width: 30,
-        height: 30,
+        width: 25,
+        height: 25,
     },
     convoStarter: {
         color: appearanceMode.textColor,
         fontFamily: 'bold',
         marginVertical: 5,
         paddingHorizontal: 5
+    },
+    micButton: {
+        backgroundColor: 'rgba(98, 95, 224, 0.3)',
+        paddingVertical: 10,
+        marginHorizontal: 5,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 10
     },
     linkContainer: {
         marginTop: 10,

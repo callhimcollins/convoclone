@@ -71,10 +71,32 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             justifyContent: 'center',
             alignItems: 'center',
         },
+        disabledVoiceNoteContainer: {
+            backgroundColor: appearanceMode.faint,
+            borderRadius: 10,
+            padding: 10,
+            marginBottom: 5,
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            flexDirection: 'row'
+        },
+        disabledVoiceNote: {
+            color: 'white',
+            fontFamily: 'bold',
+        },
         chat: {
             color: appearanceMode.textColor,
             width: '100%',
             fontFamily: 'semibold',
+        },
+        playAudioContainer: {
+            backgroundColor: 'rgba(98, 95, 224, 0.3)',
+            borderRadius: 10,
+            padding: 10,
+            marginBottom: 5,
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            flexDirection: 'row'
         },
         chatMedia: {
             width: 250,

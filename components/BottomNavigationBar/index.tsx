@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur'
 import { Text, View } from '../Themed'
 import getStyles from './styles'
-import React, { useEffect } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { Image, Platform, TouchableOpacity, useColorScheme } from 'react-native'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -11,7 +11,8 @@ import Animated from 'react-native-reanimated'
 import { getDefaultAppearance, setAppearanceManually, setDefaultAppearanceManually } from '@/state/features/appearanceSlice'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { setNotificationData } from '@/state/features/notificationSlice'
-
+import { supabase } from '@/lib/supabase'
+import { togglePlayPause } from '@/state/features/mediaSlice'
 
 const BottomNavigationBar = () => {
   const colorScheme = useColorScheme()
@@ -20,17 +21,17 @@ const BottomNavigationBar = () => {
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
   const numberOfNotifications = useSelector((state:RootState) => state.notifications.numberOfNotifications)
   const notificationData = useSelector((state:RootState) => state.notifications.notificationData)
+  const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
+  const videoPlayState = useSelector((state: RootState) => state.media.playState)
   const dispatch = useDispatch()
   const styles = getStyles(appearanceMode)
 
-  
-
   useEffect(() => {
-    if(activeTab.name === 'Notifications') {
-      let timeoutID;
+    if(activeTab?.name === 'Notifications') {
+      let timeoutID:any;
       timeoutID = setTimeout(() => {
         dispatch(setNotificationData(null))
-      }, 3000)
+      }, 1000)
       return () => clearTimeout(timeoutID)
     }
   }, [activeTab])
@@ -54,9 +55,25 @@ const BottomNavigationBar = () => {
     getAppearanceFromStorage()
   }, [colorScheme])
 
-  
+
+
+  const checkIfNotifications = async () => {
+    const { data } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('receiver_id', String(authenticatedUserData?.user_id))
+    .eq('seen', false)
+    if(data) {
+
+    }
+  }
+
+   
   const showConvoStarter = () => {
     dispatch(toggleConvoStarterButton())
+    if(videoPlayState?.index !== '') {
+      dispatch(togglePlayPause({index: ''}))
+    }
   }
 
   const renderBottomNavigation = () => {
@@ -66,13 +83,13 @@ const BottomNavigationBar = () => {
         <View style={styles.tabContainer}>
           <View style={styles.tabs}>
             {tabs.map((tab, index) => {
-              if(tab.name === activeTab.name) {
+              if(tab?.name === activeTab?.name) {
               return(
               <Animated.View key={index}>
                 <TouchableOpacity style={styles.activeTab} key={index}>
                   <Image style={styles.icon} source={tab.darkModeIcon}/>
-                  {activeTab.name === 'Notifications' && <Image style={styles.icon} source={tab.notificationAbsentDarkModeIcon}/>}
-                  <Text style={styles.tabActiveName} key={index}>{tab.name}</Text>
+                  {activeTab?.name === 'Notifications' && <Image style={styles.icon} source={tab.notificationAbsentDarkModeIcon}/>}
+                  <Text style={styles.tabActiveName} key={index}>{tab?.name}</Text>
                 </TouchableOpacity>
               </Animated.View>
                )
@@ -80,9 +97,9 @@ const BottomNavigationBar = () => {
                 return(
                   <Animated.View key={index}>
                   <TouchableOpacity style={{ justifyContent: 'center', alignItems: 'center' }} onPress={() => dispatch(setActiveTab(index))} key={index}>
-                  { tab.name !== 'Notifications' && <Image style={styles.icon} source={appearanceMode.name === 'light' ? tab.lightModeIcon : tab.darkModeIcon}/>}
-                    { tab.name === 'Notifications' && numberOfNotifications > 0 && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationPresentLightModeIcon : tab.notificationPresentDarkModeIcon }/>}
-                    { tab.name === 'Notifications' && numberOfNotifications === 0 && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationAbsentLightModeIcon : tab.notificationAbsentDarkModeIcon }/>}
+                  { tab?.name !== 'Notifications' && <Image style={styles.icon} source={appearanceMode.name === 'light' ? tab.lightModeIcon : tab.darkModeIcon}/>}
+                    { tab?.name === 'Notifications' && numberOfNotifications > 0 && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationPresentLightModeIcon : tab.notificationPresentDarkModeIcon }/>}
+                    { tab?.name === 'Notifications' && numberOfNotifications === 0 && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationAbsentLightModeIcon : tab.notificationAbsentDarkModeIcon }/>}
                   </TouchableOpacity>
                 </Animated.View>
                 )
@@ -101,13 +118,13 @@ const BottomNavigationBar = () => {
         <View style={styles.tabContainer}>
           <View style={styles.tabs}>
             {tabs.map((tab, index) => {
-              if(tab.name === activeTab.name) {
+              if(tab?.name === activeTab?.name) {
               return(
               <Animated.View key={index}>
                 <TouchableOpacity style={styles.activeTab} key={index}>
                   <Image style={styles.icon} source={tab.darkModeIcon}/>
-                  {activeTab.name === 'Notifications' && <Image style={styles.icon} source={tab.notificationAbsentDarkModeIcon}/>}
-                  <Text style={styles.tabActiveName} key={index}>{tab.name}</Text>
+                  {activeTab?.name === 'Notifications' && <Image style={styles.icon} source={tab.notificationAbsentDarkModeIcon}/>}
+                  <Text style={styles.tabActiveName} key={index}>{tab?.name}</Text>
                 </TouchableOpacity>
               </Animated.View>
                )
@@ -115,9 +132,9 @@ const BottomNavigationBar = () => {
                 return(
                   <Animated.View key={index}>
                   <TouchableOpacity style={{ justifyContent: 'center', alignItems: 'center' }} onPress={() => dispatch(setActiveTab(index))} key={index}>
-                    { tab.name !== 'Notifications' && <Image style={styles.icon} source={appearanceMode.name === 'light' ? tab.lightModeIcon : tab.darkModeIcon}/>}
-                    { tab.name === 'Notifications' && notificationData && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationPresentLightModeIcon : tab.notificationPresentDarkModeIcon }/>}
-                    { tab.name === 'Notifications' && !notificationData && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationAbsentLightModeIcon : tab.notificationAbsentDarkModeIcon }/>}
+                    { tab?.name !== 'Notifications' && <Image style={styles.icon} source={appearanceMode.name === 'light' ? tab.lightModeIcon : tab.darkModeIcon}/>}
+                    { tab?.name === 'Notifications' && notificationData && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationPresentLightModeIcon : tab.notificationPresentDarkModeIcon }/>}
+                    { tab?.name === 'Notifications' && !notificationData && <Image style={styles.icon} source={appearanceMode.name === 'light' ?  tab.notificationAbsentLightModeIcon : tab.notificationAbsentDarkModeIcon }/>}
                   </TouchableOpacity>
                 </Animated.View>
                 )

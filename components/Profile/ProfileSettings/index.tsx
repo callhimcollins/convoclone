@@ -16,6 +16,7 @@ const ProfileSettings = () => {
     const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
     const defaultAppearance = useSelector((state:RootState) => state.appearance.defaultAppearance)
     const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
+    const authenticatedUserID = useSelector((state:RootState) => state.user.authenticatedUserID)
     const userData = useSelector((state:RootState) => state.user.userData)
     const router = useRouter()
     const [autoPlay, setAutoPlay] = useState(false)
@@ -32,14 +33,28 @@ const ProfileSettings = () => {
     const handleSignOut = async () => {
         if(profileID === authenticatedUserData?.user_id) {
             try {
-                const { error } = await supabase.auth.signOut()
-                if(error) {
-                    console.log("Sign out error: ", error.message)
+                console.log("Sign out successful")
+                const { error:updateError } = await supabase
+                .from('Users')
+                .update({ pushToken: null })
+                .eq('user_id', String(authenticatedUserData?.user_id))
+                if(!updateError) {
+                    console.log("Push Deleted")
+                    const { error } = await supabase.auth.signOut()
+                    if(error) {
+                        await dispatch(setSystemNotificationState(true))
+                        await dispatch(setSystemNotificationData({ type: 'error', message: 'Couldn\'t Sign Out' }))
+                    } else {
+                        await dispatch(setAuthenticatedUserData(null))
+                        await dispatch(setAuthenticatedUserID(null))
+                        await dispatch(getUserData(null))
+                        await dispatch(setSystemNotificationState(true))
+                        await dispatch(setSystemNotificationData({ type: 'neutral', message: 'Signed Out. Please Restart App' }))
+                        await AsyncStorage.clear();
+                        router.replace('/(auth)/LoginScreen')
+                    }
                 } else {
-                    dispatch(setAuthenticatedUserData(null))
-                    dispatch(setAuthenticatedUserID(null))
-                    dispatch(getUserData(null))
-                    router.replace('/(auth)/LoginScreen')
+                    console.log('Problem occured on update push', updateError)
                 }
             } catch (error) {
                 console.log("Unexpected error in sign out: ", error)
@@ -221,12 +236,11 @@ const ProfileSettings = () => {
                 console.log("Request notification sent")
                 const { data } = await supabase
                 .from('Users')
-                .select('pushToken')
+                .select('pushToken, user_id')
                 .eq('user_id', String(userData?.user_id))
                 .single()
-
                 if(data) {
-                    sendPushNotification(data.pushToken, "Private", `${authenticatedUserData?.username} is requesting to join your Private Circle`)
+                    sendPushNotification(data.pushToken, "Private", `${authenticatedUserData?.username} is requesting to join your Private Circle`, 'profile', authenticatedUserData, null, userData?.user_id)
                 }
             } else {
                 console.log("Problem sending notification")
@@ -467,6 +481,67 @@ const ProfileSettings = () => {
         }
     }, [handleDefaultAppearance])
 
+    const deleteAccount = async () => {
+            const { data, error } = await supabase
+            .from('Users')
+            .delete()
+            .eq('user_id', String(authenticatedUserData?.user_id))
+            .select()
+            .single()
+            if(!error) {
+                const { error:storageError } = await supabase.storage
+                .from('userfiles')
+                .remove([String(authenticatedUserData?.profileImage), String(authenticatedUserData?.backgroundProfileImage), String(authenticatedUserData?.audio)])
+                if(!storageError) {
+                    console.log('Files Removed successfully')
+                }
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'neutral', message: "Account Deleted. Please Restart App"}))
+                const { error } = await supabase.auth.signOut();
+                if(!error) {
+                    await router.replace('(auth)/LoginScreen')
+                }
+            } else {
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'error', message: "Couldn't Delete Account"}))
+                return;
+            }
+    }
+
+    const handleDeleteAccount = async () => {
+        Alert.alert(
+            `Delete Account?`,
+            `Are you sure you want to delete your account`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Delete',
+                    onPress: deleteAccount,
+                }
+            ],
+            { cancelable: false }
+        )
+    }
+
+    const reportUser = async () => {
+        const { error } = await supabase
+        .from('userReports')
+        .insert({ reporting_user_id: authenticatedUserData?.user_id, reported_user_id: userData?.user_id })
+        .single()
+        if(!error) {
+            dispatch(setSystemNotificationState(true))
+            dispatch(setSystemNotificationData({ type: 'success', message: "User Reported. We'll Keep Working To Make Convo A Safe Place"}))
+            router.back()
+        } else {
+            console.log('An Error Occured', error.message)
+            dispatch(setSystemNotificationState(true))
+            dispatch(setSystemNotificationData({ type: 'error', message: "A Problem Occured"}))
+        }
+    }
+
     return (
         <View style={styles.container}>
             <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'} intensity={80} style={styles.header}>
@@ -474,12 +549,7 @@ const ProfileSettings = () => {
             </BlurView>
 
             { profileID === authenticatedUserData?.user_id && <ScrollView contentContainerStyle={{ paddingTop: 80 }}>
-                <TouchableOpacity onPress={navigateToEditProfile} style={styles.button}>
-                    { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/edituserdarkmode.png')} style={styles.icon} />}
-                    { appearanceMode.name === 'light' && <Image source={require('@/assets/images/edituserlightmode.png')} style={styles.icon} />}
-                    <Text style={styles.buttonText}>Edit Profile</Text>
-                </TouchableOpacity>
-                <View style={[styles.button, {paddingRight: 30, flexDirection: 'column' }]}>
+            <View style={[styles.button, {paddingRight: 30, flexDirection: 'column' }]}>
                     <View style={{ flexDirection: 'row', width: '100%', justifyContent: 'space-between' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/appearancedarkmode.png')} style={styles.icon} />}
@@ -500,20 +570,17 @@ const ProfileSettings = () => {
                         { !defaultAppearance && <Text style={{ color: appearanceMode.textColor, fontFamily: 'bold' }}>Default Appearance Off</Text>}
                     </TouchableOpacity>
                 </View>
+                <TouchableOpacity onPress={navigateToEditProfile} style={styles.button}>
+                    { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/edituserdarkmode.png')} style={styles.icon} />}
+                    { appearanceMode.name === 'light' && <Image source={require('@/assets/images/edituserlightmode.png')} style={styles.icon} />}
+                    <Text style={styles.buttonText}>Edit Profile</Text>
+                </TouchableOpacity>
                 <View style={[styles.button, { justifyContent: 'space-between', paddingRight: 30 }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/autoplaydarkmode.png')} style={styles.icon} />}
-                        { appearanceMode.name === 'light' && <Image source={require('@/assets/images/autoplaylightmode.png')} style={styles.icon} />}
-                        <Text style={styles.buttonText}>Auto Play Chat</Text>
+                        { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/shareprofiledarkmode.png')} style={styles.icon} />}
+                        { appearanceMode.name === 'light' && <Image source={require('@/assets/images/shareprofilelightmode.png')} style={styles.icon} />}
+                        <Text style={styles.buttonText}>Share Profile</Text>
                     </View>
-
-                    <Switch
-                            trackColor={{ false: "#767577", true: "#8F8CFA" }}
-                            thumbColor={autoPlay ? appearanceMode.primary : "#f4f3f4"}
-                            ios_backgroundColor="#3e3e3e"
-                            onValueChange={toggleAutoPlaySwitch}
-                            value={autoPlay}
-                        />
                 </View>
                 <TouchableOpacity onPress={handlePrivateCircleNavigation} style={styles.button}>
                     { appearanceMode.name === 'dark' && <Image source={require('@/assets/images/privatedarkmode.png')} style={styles.icon} />}
@@ -534,7 +601,12 @@ const ProfileSettings = () => {
                 
                 <TouchableOpacity onPress={handleSignOut} style={styles.button}>
                     <Image source={require('@/assets/images/signout.png')} style={styles.icon} />
-                    <Text style={[styles.buttonText, { color: '#FF3333' }]}>Sign Out</Text>
+                    <Text style={[styles.buttonText, { color: '#E33629' }]}>Sign Out</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleDeleteAccount} style={styles.button}>
+                    <Image source={require('@/assets/images/deleteaccount.png')} style={styles.icon} />
+                    <Text style={[styles.buttonText, { color: '#E33629' }]}>Delete Account</Text>
                 </TouchableOpacity>
             </ScrollView>}
 
@@ -569,7 +641,7 @@ const ProfileSettings = () => {
                     <Text style={[styles.buttonText, { color: appearanceMode.secondary }]}>{userData?.username} is in your Private Circle. <Text style={{ color: appearanceMode.primary }}>Tap To Kick Out</Text></Text>
                 </TouchableOpacity>}
 
-                <TouchableOpacity style={styles.button}>
+                <TouchableOpacity onPress={reportUser} style={styles.button}>
                     <Image source={require('@/assets/images/reportuser.png')} style={styles.icon} />
                     <Text style={[styles.buttonText, { color: '#FF3333' }]}>Report User</Text>
                 </TouchableOpacity>

@@ -1,4 +1,4 @@
-import { Dimensions, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from 'react-native'
+import { Dimensions, Image, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from 'react-native'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Gesture, GestureDetector, TextInput } from 'react-native-gesture-handler'
 import { useDispatch, useSelector } from 'react-redux'
@@ -6,14 +6,23 @@ import { RootState } from '@/state/store'
 import getStyles from './styles'
 import { AntDesign, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
-import { useLocalSearchParams } from 'expo-router'
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
+import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { setReplyChat } from '@/state/features/chatSlice'
+import { addToBotContext, addToInputState, setReplyChat, setChatFiles } from '@/state/features/chatSlice'
 import { openai } from '@/lib/openAIInitializer'
 import { sendPushNotification } from '@/pushNotifications'
+import { useDebouncedCallback } from 'use-debounce'
+import { ChatCompletionMessageParam } from 'openai/resources'
+import * as ImagePicker from 'expo-image-picker'
+import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import { Audio } from 'expo-av'
+import { decode } from 'base64-arraybuffer'
+import * as FileSystem from 'expo-file-system'
+import { randomUUID } from 'expo-crypto'
 
-const initialKeyboardWidth = Dimensions.get('window').width * .5
+
+const BOT_COOLDOWN = 5000;
 const ChatFooter = () => {
   const gesture = Gesture.Pan()
   const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
@@ -25,10 +34,29 @@ const ChatFooter = () => {
   const [activeUsers, setActiveUsers] = useState<Array<String>>([])
   const [expanded, setExpanded] = useState(false)
   const [content, setContent] = useState<string>()
+  const [lastBotResponseTime, setLastBotResponseTime] = useState(0)
+  const [recording, setRecording] = useState<any>(false)
+  const [recordingUri, setRecordingUri] = useState('')
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isRecordingState, setIsRecordingState] = useState<boolean>(false)
+  const [isPaused, setIsPaused] = useState(true)
+  const contextForBotState = useSelector((state:RootState) => state.chat.contextForBotState)
+  const inputStateForConvo = useSelector((state:RootState) => state.chat.inputState)
+  const convoExists = useSelector((state:RootState) => state.chat.convoExists)
+  const audioLevels = Array(10).fill(0).map(() => useSharedValue(0.1));
+  const initialKeyboardWidth = convoData.dialogue ? Dimensions.get('window').width * .7 : Dimensions.get('window').width * .5
   const expansionWidth = useSharedValue(initialKeyboardWidth)
   const { convoID } = useLocalSearchParams()
   const dispatch = useDispatch()
+  const recordContainerHeight = useSharedValue(0)
+  const recordContainerOpacity = useSharedValue(0)
 
+  const recordContainerAnimatedStyle = useAnimatedStyle(() => {
+    return {
+        height: recordContainerHeight.value,
+        opacity: recordContainerOpacity.value
+    }
+  })
 
   const chatData = useMemo(() => ({
     convo_id: convoID,
@@ -36,9 +64,17 @@ const ChatFooter = () => {
     content,
     files: null,
     audio: null,
-    userData: authenticatedUserData,
     replyChat,
   }), [convoID, authenticatedUserData, content, replyChat])
+
+  const robotData = useMemo(() => ({
+    user_id: convoID,
+    username: `Dialogue Robot-${convoID}`,
+    name: `Dialogue Robot`,
+    bio: `I was created to talk in room: ${convoData?.convoStarter}`,
+    profileImage: '',
+    isRobot: true
+  }), [convoID, convoData?.convoStarter]);
 
   const notificationDataForReplyChat = {
     sender_id: authenticatedUserData?.user_id,
@@ -49,33 +85,104 @@ const ChatFooter = () => {
     convo: convoData
   }
 
-  const isContentEmpty = (text:any) => {
+  const isContentEmpty = (text:string) => {
     return !text || text.trim() === '';
   }
 
+  const sendChatByRobot = async (convo_id: string, robot:any, robot_id:string, content:string) => {
+    const robotChatData = {
+      convo_id,
+      user_id: robot_id,
+      content,
+      files: null,
+      audio: null,
+      userData: robot
+    }
+
+    const { error } = await supabase
+    .from('Chats')
+    .insert([robotChatData])
+    .select()
+    if(!error) {
+      const { error } = await supabase
+      .from('Convos')
+      .update({lastChat: chatData})
+      .eq('convo_id', String(convo_id))
+      .select()
+      if(error) {
+          console.log("Couldn't update last chat by robot", error.message)
+      }
+    }
+    if(!error) {
+    } else {
+      console.log("Couldn't send chat", error.message)
+    }
+}
+
+  const completeBotResponse = useDebouncedCallback(async (messages: ChatCompletionMessageParam[]) => {
+    try {
+      const systemMessage: ChatCompletionMessageParam = {
+        role: 'system',
+        content: `You Are Dialogue Robot. Be The Character In This Role: ${convoData?.convoStarter}. Keep it as natural as the character in the role. Use Emojis Only When ABSOLUTELY Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Treat usernames as their own individual character and only mention their usernames when ABSOLUTELY NECESSARY. Make sure to keep your words to less than 50 words`
+      };
+  
+      const chatCompletion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [systemMessage, ...messages],
+        max_tokens: 100
+      });
+  
+      const botResponse = chatCompletion.choices[0].message.content;
+      await sendChatByRobot(String(convoID), robotData, `${convoID}`, String(botResponse));
+    } catch (error) {``
+      console.error("Error in completeBotResponse:", error);
+    }
+  }, 1000, { maxWait: 5000 });
 
   const sendChat = async () => {
-
-    if(isContentEmpty(content)) {
+    if(isContentEmpty(String(content))) {
       return;
     }
     if(content) {
-      const { error }:any = await supabase
-      .from('Chats')
-      .insert([chatData])
-      .eq('convo_id', String(convoID))
-      .single()
-
+      dispatch(addToBotContext({ role: 'user', content }))
+      const { data, error } = await supabase
+        .from('Chats')
+        .insert([chatData])
+        .eq('convo_id', String(convoID))
+        .select(`
+          *,
+          Users (
+            user_id,
+            username,
+            profileImage,
+            isRobot
+          )
+        `)
+        .single()
       if(!error) {
         setContent('')
         updateConvoLastChat()
+        dispatch(addToInputState({[convoID as string]: null}))
+        if(convoData.dialogue) {
+          if(!data.Users.isRobot) {
+            const newChatForRobot = {
+              role: 'user',
+              content: replyChat && replyChat.username.includes('Dialogue Robot') ? `I'm(${authenticatedUserData?.name?.split(' ')[0]}) replying to your chat: ${replyChat.content}, reply to my own chat: ${content} using my reply and the past messages up until the reply to your chat as context. Don't Start Your Reply With "Dialogue Robot: "` 
+          : `${authenticatedUserData?.name?.split(' ')[0]}: ${content}. Don't Start Your Reply With "Dialogue Robot: "`
+            }
+            const now = Date.now();
+            if(now - lastBotResponseTime > BOT_COOLDOWN) {
+              completeBotResponse([...contextForBotState, newChatForRobot])
+              setLastBotResponseTime(now)
+            }
+          }
+        }
         if(replyChat){
           sendNotificationForReplyChatInApp()
           dispatch(setReplyChat(null))
         }
-      }
-      if(error) {
-        console.log(error.message)
+      } else {
+        console.log('Error inserting chat:', error.message)
       }
     }
   }
@@ -104,7 +211,8 @@ const ChatFooter = () => {
           .eq('user_id', replyChat.user_id)
           .single()
           if(data) {
-            sendPushNotification(String(data.pushToken), `${authenticatedUserData?.username} replied to your chat in: ${convoData.convoStarter}`, content)
+            if(authenticatedUserData)
+            sendPushNotification(String(data.pushToken), `${authenticatedUserData?.username} replied to your chat in: ${convoData.convoStarter}`, String(content), 'reply', convoData, { user_id: authenticatedUserData.user_id, username: authenticatedUserData.username, content, convo_id: convoData.convo_id }, replyChat.user_id)
           }
         } else {
           console.log("Send notification error", error.message)
@@ -112,7 +220,6 @@ const ChatFooter = () => {
       }
     }
   }
-
 
   const updateConvoLastChat = async () => {
     const { error } = await supabase
@@ -131,6 +238,7 @@ const ChatFooter = () => {
       width: expansionWidth.value
     }
   })
+
 
   
   useEffect(() => {
@@ -173,12 +281,252 @@ const ChatFooter = () => {
         expansionWidth.value = withTiming(initialKeyboardWidth, {duration: 300})
         setExpanded(false)
       } else {
-        expansionWidth.value = withTiming(Dimensions.get('window').width * .8, {duration: 300})
+        expansionWidth.value = withTiming(convoData.dialogue_robot ? Dimensions.get('window').width * .9 : Dimensions.get('window').width * .8, {duration: 300})
         setExpanded(true)
       }
     }, [handleKeyPress])
+
+    useEffect(() => {
+      if(inputStateForConvo[convoID as string]) {
+        setContent(inputStateForConvo[convoID as string])
+      }
+    }, [])
+    
+    useEffect(() => {
+      if(content) {
+        dispatch(addToInputState({[convoID as string]: content}))
+      }
+    }, [content])
+
+    const pickFiles = async () => {
+      let result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.All,
+          allowsMultipleSelection: true,
+          quality: 1,
+          videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+          videoMaxDuration: 60,
+          selectionLimit: 2
+      })
+
+      if(!result.canceled) {
+          if(result.assets.length > 2) {
+              dispatch(setSystemNotificationState(true))
+              dispatch(setSystemNotificationData({ type: 'error', message: 'You can only select up to 4 files.' }))
+              return;
+          }
+          await dispatch(setChatFiles((result.assets)))
+          await router.push({
+            pathname: '/(chat)/WithMediaScreen',
+            params: { convoID: convoID }
+          })
+      }
+    }
+
+    const requestPermissions = async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if(status !== 'granted') {
+          alert('Sorry, we need camera roll permissions to make this work!')
+      }
+    }
+
+  const onRecordingStatusUpdate = (status: any) => {
+      if (status.metering !== undefined) {
+        const level = Math.min(Math.max((status.metering + 160) / 160, 0), 1);
+        
+        audioLevels.forEach((sharedValue) => {
+          if (Math.random() > 0.5) {
+            const newValue = Math.max(Math.random() * (level + 0.2), 0.1); // Ensure minimum value
+            sharedValue.value = withSpring(newValue, {
+              damping: 10,
+              stiffness: 80,
+            });
+          }
+        });
+      }
+    };
   
-  const renderChatFooter = () => {
+
+    const startRecording = async () => {
+      requestPermissions()
+        try {
+            await Audio.requestPermissionsAsync();
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true
+            });
+    
+            const { recording } = await Audio.Recording.createAsync(
+                Audio.RecordingOptionsPresets.HIGH_QUALITY,
+                onRecordingStatusUpdate,
+                100 // Update every 100ms
+            );
+            setRecording(recording);
+            setIsRecordingState(true)
+            recordContainerHeight.value = withTiming(50);
+            recordContainerOpacity.value = withTiming(1);
+            // If there's an existing sound, unload it
+            if (sound) {
+                await sound.unloadAsync();
+                setSound(null);
+            }
+    
+            // Set a timeout to stop the recording after MAX_RECORDING_DURATION
+              
+        } catch (error) {
+            console.log('Failed To Start Recording', error);
+        }
+    };
+    
+    const stopAndSaveRecording = async () => {
+      setKeyboardPaddingBottom(23)
+        if (!recording) return;
+    
+        try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            setRecordingUri(uri)
+            setRecording(null);
+    
+            recordContainerHeight.value = withTiming(0);
+            recordContainerOpacity.value = withTiming(0);
+    
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: false,
+                shouldDuckAndroid: false,
+                playThroughEarpieceAndroid: false,
+            });
+    
+            // Create a new sound object with the latest recording
+            const { sound: newSound } = await Audio.Sound.createAsync({ uri });
+            setSound(newSound);
+            setIsPaused(true);
+            setIsRecordingState(false)
+        } catch (error) {
+            console.error("Error stopping the recording:", error);
+        }
+    };
+    
+  
+
+  const playRecording = async () => {
+      try {
+          if (sound) {
+              if (isPaused) {
+                  await sound.playAsync();
+                  sound.setOnPlaybackStatusUpdate(async (status: any) => {
+                      if (status.didJustFinish) {
+                          await sound.setPositionAsync(0);
+                          setIsPaused(true);
+                      }
+                  })
+              } else {
+                  await sound.setPositionAsync(0);
+                  await sound.playAsync();
+              }
+              setIsPaused(false);
+          } else if (recordingUri) {
+              const { sound: newSound } = await Audio.Sound.createAsync(
+                  { uri: recordingUri },
+                  { shouldPlay: true }
+              );
+              setSound(newSound);
+              setIsPaused(false);
+
+              newSound.setOnPlaybackStatusUpdate(async (status: any) => {
+                  if (status.didJustFinish) {
+                      setIsPaused(true);
+                      await newSound.setPositionAsync(0);
+                  }
+              });
+          } else {
+              dispatch(setSystemNotificationState(true));
+              dispatch(setSystemNotificationData({ type: 'error', message: 'Nothing To Play' }));
+          }
+      } catch (error) {
+          dispatch(setSystemNotificationState(true));
+          dispatch(setSystemNotificationData({ type: 'error', message: 'An Error Occurred' }));
+      }
+  };
+  
+  const pauseRecording = async () => {
+      if (sound && !isPaused) {
+          try {
+              await sound.pauseAsync();
+              setIsPaused(true);
+          } catch (error) {
+              console.error("Error pausing the recording:", error);
+          }
+      }
+  };
+
+  const handleRecording = async () => {
+    if(isRecordingState) {
+      await stopAndSaveRecording()
+    } else {
+      await startRecording()
+    }
+  }
+
+  const handlePlayPause = async () => {
+    if(isPaused) {
+      await playRecording()
+    } else {
+      await pauseRecording()
+    }
+  }
+
+  const sendAudio = async () => {
+    if(!recordingUri?.startsWith('file')) {
+        return;
+    }
+    if(authenticatedUserData) {
+      const chatAudioData = {
+        convo_id: convoID,
+        user_id: authenticatedUserData?.user_id,
+        content: replyChat?.content ? `Voice reply to ${replyChat.username}`:`Voice Note`,
+        files: null,
+        audio: null,
+        replyChat,
+      }
+        const { data:chatInsertData, error:chatInsertError } = await supabase
+        .from('Chats')
+        .insert(chatAudioData)
+        .select('chat_id')
+        .single()
+        if(!chatInsertError) {
+          const base64 = await FileSystem.readAsStringAsync(recordingUri, { encoding: 'base64' })
+          const filepath = `Chats/${chatInsertData.chat_id}`;
+          const contentType = 'audio/mpeg'
+          const { data, error } = await supabase
+          .storage
+          .from('userfiles')
+          .upload(filepath, decode(base64), { cacheControl: '31536000', upsert: true, contentType })
+          if(data) {
+              console.log('Uploaded in database')
+                  const { error:updateError } = await supabase
+                  .from('Chats')
+                  .update({ audio: filepath})
+                  .eq('chat_id', String(chatInsertData.chat_id))
+                  if(!updateError) {
+                      console.log("Audio uploaded in database")
+                      setRecordingUri('')
+                      setContent('')
+                  } else {
+                      console.log("Could not upload audio in database", updateError.message)
+                  }
+          } else if(error) {
+              console.log("error uploading profile background", error.message)
+          }
+        } else {
+          console.log("Could not insert chat data", chatInsertError.message)
+        }
+    }
+}
+
+  
+    const renderChatFooter = () => {
     if(Platform.OS === 'android') {
       return (
         <KeyboardAvoidingView style={{ position: 'absolute', bottom: 0, width: '100%' }}>
@@ -192,7 +540,7 @@ const ChatFooter = () => {
               <Text numberOfLines={3} ellipsizeMode='tail' style={styles.replyChat}>{ replyChat.content }</Text>
           </View>}
           <View style={[styles.container, { paddingBottom: keyboardPaddingBottom, backgroundColor: appearanceMode.backgroundColor }]}>
-            <Animated.View style={[styles.inputContainer, keyboardExpansionAnimation]}>
+            <Animated.View style={[styles.inputContainer, keyboardExpansionAnimation, { borderWidth: 1, borderColor: appearanceMode.faint }]}>
               <TextInput 
                 multiline
                 value={content}
@@ -203,17 +551,36 @@ const ChatFooter = () => {
                 style={styles.textInput}  
                 placeholderTextColor={Platform.OS === 'android' ? appearanceMode.secondary : ''}
                 placeholder='Type something...'/>
-              { expanded && <TouchableOpacity onPress={sendChat}>
-                <Text style={styles.sendText}>Send</Text>
+              { expanded && <TouchableOpacity disabled={convoExists === false ? true : false} onPress={sendChat}>
+                <Text style={[styles.sendText, convoExists === false && {color: appearanceMode.secondary}]}>Send</Text>
               </TouchableOpacity>}
             </Animated.View>
+            <Animated.View style={[styles.visualizer, recordContainerAnimatedStyle]}>
+                    {audioLevels.map((sharedValue, index) => {
+                        const animatedStyle = useAnimatedStyle(() => {
+                        const height = Math.max(sharedValue.value * 50, 5); // Ensure minimum height
+                        return {
+                            height,
+                            backgroundColor: `rgba(98, 95, 224, ${Math.max(sharedValue.value, 0.2)})`,
+                        };
+                        });
+                        return (
+                        <Animated.View
+                            key={index}
+                            entering={FadeIn}
+                            style={[styles.bar, animatedStyle]}
+                        />
+                        );
+                    })}
+              </Animated.View>
             <View style={styles.middleContainer}>
-              { !expanded && <TouchableOpacity style={styles.recordButton}>
+              { !expanded && <TouchableOpacity onPress={startRecording} disabled={convoExists === false ? true : false} style={[styles.recordButton, convoExists === false && {backgroundColor: appearanceMode.secondary}]}>
                 <MaterialCommunityIcons name='microphone' color={'white'} size={24}/>
               </TouchableOpacity>}
             </View>
-            <TouchableOpacity>
-              <Ionicons name='attach' color={appearanceMode.textColor} size={24} />
+
+            <TouchableOpacity disabled={convoExists === false ? true : false}>
+              <Ionicons name='attach' color={convoExists === false ? appearanceMode.secondary : appearanceMode.textColor} size={24} />
             </TouchableOpacity>
           </View>
       </KeyboardAvoidingView>)
@@ -229,30 +596,66 @@ const ChatFooter = () => {
             </View>
               <Text numberOfLines={3} ellipsizeMode='tail' style={styles.replyChat}>{ replyChat.content }</Text>
           </Animated.View>}
+          
           <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'}  intensity={80} style={[styles.container, { paddingBottom: keyboardPaddingBottom }]}>
-            <Animated.View style={[styles.inputContainer, keyboardExpansionAnimation]}>
-              <TextInput
+            <Animated.View style={[styles.inputContainer, keyboardExpansionAnimation, !isRecordingState && !recordingUri && { borderWidth: 1, borderColor: appearanceMode.faint }]}>
+              { !isRecordingState &&  !recordingUri &&<TextInput
                 multiline
                 value={content}
                 onChangeText={(text) => setContent(text)}
                 onKeyPress={handleKeyPress}
                 onBlur={() => setKeyboardPaddingBottom(23)} 
                 onFocus={() => setKeyboardPaddingBottom(5)} 
+                blurOnSubmit={false} // Prevents automatic dismissal on submit
                 style={styles.textInput}  
-                placeholder='Type something...'/>
-              { expanded && <TouchableOpacity onPress={sendChat}>
-                <Text style={styles.sendText}>Send</Text>
+                placeholder='Type something...'/>}
+                  <Animated.View style={[styles.visualizer, recordContainerAnimatedStyle, { display: isRecordingState ? 'flex' : 'none'}]}>
+                    {audioLevels.map((sharedValue, index) => {
+                        const animatedStyle = useAnimatedStyle(() => {
+                        const height = Math.max(sharedValue.value * 50, 5); // Ensure minimum height
+                        return {
+                            height,
+                            backgroundColor: `rgba(98, 95, 224, ${Math.max(sharedValue.value, 0.2)})`,
+                        };
+                        });
+                        return (
+                        <Animated.View
+                            key={index}
+                            entering={FadeIn}
+                            style={[styles.bar, animatedStyle]}
+                        />
+                        );
+                    })}
+                    
+                </Animated.View>
+                { recordingUri && !isRecordingState && <View style={styles.audioPlayContainer}>
+                    <View style={styles.innerAudioPlayContainer}>
+                      <TouchableOpacity onPress={handlePlayPause}>
+                        <Image style={styles.playButtonImage} source={ isPaused ? require('@/assets/images/play.png') : require('@/assets/images/pause.png')}/>
+                      </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setRecordingUri('')}>
+                            <Ionicons name="close" size={38} color="white" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={sendAudio} style={styles.sendAudioButton}>
+                          <Text style={styles.sendAudioText}>Send</Text>
+                        </TouchableOpacity>
+
+                      </View>
+                    </View>}
+              { expanded && <TouchableOpacity disabled={convoExists === false ? true : false} onPress={sendChat}>
+                <Text style={[styles.sendText, convoExists === false && {color: appearanceMode.secondary}]}>Send</Text>
               </TouchableOpacity>}
             </Animated.View>
-            <View style={styles.middleContainer}>
-              { !expanded && <TouchableOpacity style={styles.recordButton}>
+            { !convoData.dialogue && <View style={styles.middleContainer}>
+              { !expanded && <TouchableOpacity onPress={handleRecording} disabled={convoExists === false ? true : false} style={[styles.recordButton, convoExists === false && {backgroundColor: appearanceMode.secondary}]}>
                 <MaterialCommunityIcons name='microphone' color={'white'} size={24}/>
               </TouchableOpacity>}
-            </View>
+            </View>}
 
-            <TouchableOpacity>
-              <Ionicons name='attach' color={appearanceMode.textColor} size={24} />
-            </TouchableOpacity>
+            { !convoData.dialogue && <TouchableOpacity onPress={pickFiles} style={styles.attachButton} disabled={convoExists === false ? true : false}>
+              <Ionicons name='attach' color={convoExists === false ? appearanceMode.secondary : appearanceMode.textColor} size={24} />
+            </TouchableOpacity>}
           </BlurView>
         </View>
       )

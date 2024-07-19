@@ -7,12 +7,13 @@ import { supabase } from '@/lib/supabase'
 import Convo from '../Convo'
 import KeepUpHeader from './KeepUpHeader'
 import { Skeleton } from 'moti/skeleton'
+import { convoType } from '@/types'
 
 
 const KeepUp = () => {
     const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
     const authenticatedUserData = useSelector((state: RootState) => state.user.authenticatedUserData)
-    const [convoKeepUps, setConvoKeepUps] = useState([])
+    const [convoKeepUps, setConvoKeepUps] = useState<convoType[] | null>([])
     const [refreshing, setRefreshing] = useState(false)
     const [loading, setLoading] = useState(true)
     const styles = getStyles(appearanceMode)
@@ -34,7 +35,7 @@ const KeepUp = () => {
 
     useEffect(() => {
       getConvoKeepUps()
-    }, [refreshing])
+    }, [authenticatedUserData])
 
 
     useEffect(() => {
@@ -45,11 +46,11 @@ const KeepUp = () => {
         (payload) => {
           setRefreshing(true)
           if(payload.eventType === 'DELETE') {
-            setConvoKeepUps((prevKeepUps) => prevKeepUps.filter(keepUp => keepUp.id !== payload.old.id)
+            setConvoKeepUps((prevKeepUps) => prevKeepUps && prevKeepUps.filter(keepUp => keepUp.id !== payload.old.id)
             )
             setRefreshing(false)
           } else if(payload.eventType === 'INSERT') {
-            setConvoKeepUps((prevKeepUps) => [...prevKeepUps, payload.new])
+            setConvoKeepUps((prevKeepUps) => [...(prevKeepUps), payload.new])
             setRefreshing(false)
           }
         }
@@ -78,18 +79,21 @@ const KeepUp = () => {
               keyExtractor={(convoKeepUp) => String(convoKeepUp.convoData.id)}
               onRefresh={getConvoKeepUps}
               refreshing={refreshing}
-              renderItem={(convoKeepUp) => {
+              renderItem={({item, index}) => {
                   return (<Convo
-                      user_id={convoKeepUp.item.convoData.user_id}
-                      lastChat={convoKeepUp.item.convoData.lastChat}
-                      convo_id={convoKeepUp.item.convoData.convo_id} 
-                      dateCreated={convoKeepUp.item.convoData.dateCreated} 
-                      activeInRoom={convoKeepUp.item.convoData.activeInRoom} 
-                      userData={convoKeepUp.item.convoData.userData} 
-                      id={convoKeepUp.item.convoData.id} 
-                      files={convoKeepUp.item.convoData.files} 
-                      numberOfKeepUps={convoKeepUp.item.convoData.numberOfKeepUps} 
-                      convoStarter={convoKeepUp.item.convoData.convoStarter}
+                      user_id={item.convoData.user_id}
+                      lastChat={item.convoData.lastChat}
+                      convo_id={item.convoData.convo_id} 
+                      dateCreated={item.convoData.dateCreated} 
+                      activeInRoom={item.convoData.activeInRoom} 
+                      Users={item.convoData.Users} 
+                      id={item.convoData.id} 
+                      audio={item.convoData.audio}
+                      files={item.convoData.files} 
+                      numberOfKeepUps={item.convoData.numberOfKeepUps} 
+                      convoStarter={item.convoData.convoStarter}
+                      dialogue={item.convoData.dialogue}
+                      mediaIndex={index + .5}
                       />)}}
               />}
               {
@@ -111,5 +115,5 @@ const KeepUp = () => {
     )
 }
 
-export default memo(KeepUp)
+export default KeepUp
 

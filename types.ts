@@ -1,5 +1,5 @@
 export type userType = {
-    id: Number,
+    id?: Number,
     user_id?: string,
     email?: string,
     profileImage?: string,
@@ -44,9 +44,10 @@ export type convoType = {
     id?: Number,
     user_id?: string,
     convo_id: string,
-    userData?: userType,
+    Users?: userType,
     convoStarter?: string,
     files?: fileType[],
+    audio: string,
     chats?: Array<chatType>,
     lastChat?: chatType,
     activeInRoom?: Number,
@@ -55,7 +56,8 @@ export type convoType = {
     dateCreated?: string,
     lastUpdated?: string,
     link?: string,
-    dialogue: boolean
+    dialogue: boolean,
+    mediaIndex: number
 }
 
 export type experienceCheckType = {
@@ -82,13 +84,14 @@ export type chatType = {
     chat_id: String,
     user_id: String,
     replyChat: replyChat | null,
-    userData: userType,
+    Users: userType,
     content: string,
     thread?: Array<threadType>,
     audio?: string,
     files?: Array<string>,
     dateCreated?: string,
-    lastUpdated?: string
+    lastUpdated?: string,
+    lastChat?: any
 }
 
 export type replyChat = {
@@ -100,24 +103,22 @@ export type replyChat = {
 
 export type highlightsType = {
     id: Number,
-    user: userType,
-    image?: string,
-    video?: string,
-    chats?: Array<chatType>,
-    activeInRoom: Number,
-    location?: string,
-    numberOfKeepUps: Number,
-    dateCreated?: string,
-    lastUpdated?: string,
     highLightUsers?: Array<userType>
+}
+
+export type highlightsType2 = {
+    convo_id?: string,
+    status?: string,
+    Convos: convoType
 }
 
 export type externalInputBoxType = {
     placeholder: string,
-    icon: any,
+    icon: React.ReactNode,
     inputValue: string,
     onChangeValue: (value: string) => void,
-    action: (value: any) => void
+    action: (value: any) => void,
+    actionForKeyPress?: () => void
 }
 
 export type notificationType = {
@@ -151,6 +152,7 @@ export type fileType = {
     height?: number;
     duration?: number;
     fileUploading?: boolean
+    assetId?: string
 }
 
 export type pushNotificationType = {
@@ -160,4 +162,9 @@ export type pushNotificationType = {
     extraData?: any
 }
 
+export type discoverType = {
+    title: string,
+    convo_id: string,
+    Convos: convoType,
+}
 // l5Q69FWCl3tsY4jM

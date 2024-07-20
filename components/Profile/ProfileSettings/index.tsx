@@ -511,7 +511,7 @@ const ProfileSettings = () => {
     const handleDeleteAccount = async () => {
         Alert.alert(
             `Delete Account?`,
-            `Are you sure you want to delete your account`,
+            `Are you sure you want to delete your account. All Data Will Be Lost.`,
             [
                 {
                     text: 'Cancel',

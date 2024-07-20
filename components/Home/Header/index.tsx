@@ -44,7 +44,7 @@ const Header = () => {
                 <View style={styles.contentContainer}>
                     { appearanceMode.name === 'light' && <Image source={require(`@/assets/images/applogolightmode.png`)} style={styles.logo}/>}
                     { appearanceMode.name === 'dark' && <Image source={require(`@/assets/images/applogodarkmode.png`)} style={styles.logo}/>}
-                    <TouchableOpacity style={styles.profileButton}  onPressIn={() => handleNavigation()}>
+                    <TouchableOpacity style={styles.profileButton}  onPressIn={handleNavigation}>
                         <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={`${authenticatedUserData?.profileImage}`} style={styles.profileImage}/>
                     </TouchableOpacity>
                 </View>

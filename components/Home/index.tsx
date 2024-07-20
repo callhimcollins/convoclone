@@ -265,7 +265,8 @@ const Home = () => {
 
     return (
         <View style={styles.container}>
-            <Header/>
+                <Header/>
+
                 <View style={styles.convoContainer}>
                     {/* <Text style={styles.locationConvoText}>Conversations close to you</Text> */}
                     { !loading && <KeyboardAwareFlatList

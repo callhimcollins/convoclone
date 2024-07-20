@@ -50,6 +50,25 @@ const NotificationFeed = () => {
         }
     }, [authenticatedUserData])
 
+    const getAndUpdateBadgeCount = async () => {
+        console.log(authenticatedUserData?.badge_count)
+        if(authenticatedUserData?.badge_count > 0) {
+            const { error } = await supabase
+            .from('Users')
+            .update({ badge_count: 0 })
+            .eq('user_id', String(authenticatedUserData?.user_id))
+            if(!error) {
+                console.log("Badge count successfully updated")
+            } else {
+                console.log("Error updating badge count", error.message)
+            }
+        }
+    }
+
+    useEffect(() => {
+        getAndUpdateBadgeCount();
+    }, [])
+
     const renderContent = () => {
         if(notificationData?.length === 0) {
             return (

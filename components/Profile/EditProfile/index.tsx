@@ -210,6 +210,7 @@ const EditProfile = () => {
             return;
         }
         if(authenticatedUserData) {
+            console.log("firing upload image")
             const base64 = await FileSystem.readAsStringAsync(selectedProfileImage.uri, { encoding: 'base64' })
             const filepath = `${authenticatedUserData?.username}-profileImage`;
             const contentType = 'image/png';
@@ -218,9 +219,18 @@ const EditProfile = () => {
             .from('userfiles')
             .upload(filepath, decode(base64), { cacheControl: '3600', upsert: true, contentType })
             if(data) {
-                dispatch(setSystemNotificationState(true))
-                dispatch(setSystemNotificationData({ type: 'success', message: "Image Updated. Update Will Not Reflect Instantly"}))                
-                return (data.path)
+                const { error:updateError } = await supabase
+                .from('Users')
+                .update({ profileImage: `${authenticatedUserData.username}-profileImage`})
+                .eq('user_id', String(authenticatedUserData?.user_id))
+                .single()
+                if(!updateError) {
+                    dispatch(setSystemNotificationState(true))
+                    dispatch(setSystemNotificationData({ type: 'success', message: "Profile Image Updated. Update Will Not Reflect Instantly"}))
+                    return (data.path) 
+                } else {
+                    console.log("An Error Occured In uploadImage Under EditProfile", updateError.message)
+                }
             } else if(error) {
                 dispatch(setSystemNotificationState(true))
                 dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
@@ -228,6 +238,47 @@ const EditProfile = () => {
         }
     }
 
+    const removeProfileImage = async () => {
+        const { error } = await supabase.storage
+        .from('userfiles')
+        .remove([`${authenticatedUserData?.username}-profileImage`])
+        if(!error) {
+            const { error:databaseError } = await supabase
+            .from('Users')
+            .update({ profileImage: 'blankprofile.png' })
+            .eq('user_id', String(authenticatedUserData?.user_id))
+            .single()
+            if(!databaseError) {
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'success', message: "Profile Image Removed. Update Will Not Reflect Instantly"}))
+                router.back()
+            } else {
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
+            }
+        }
+    }
+
+    const removeProfileBackgroundImage = async () => {
+        const { error } = await supabase.storage
+        .from('userfiles')
+        .remove([`${authenticatedUserData?.username}-backgroundProfileImage`])
+        if(!error) {
+            const { error:databaseError } = await supabase
+            .from('Users')
+            .update({ backgroundProfileImage: 'profileBackgroundFallBack.jpeg' })
+            .eq('user_id', String(authenticatedUserData?.user_id))
+            .single()
+            if(!databaseError) {
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'success', message: "Background Image Removed. Update Will Not Reflect Instantly"}))
+                router.back()
+            } else {
+                dispatch(setSystemNotificationState(true))
+                dispatch(setSystemNotificationData({ type: 'error', message: "An Error Occured"}))
+            }
+        }
+    }
 
     const uploadProfileBackground = async () => {
         if(!selectedProfileBackground?.uri?.startsWith('file')) {
@@ -516,7 +567,7 @@ const EditProfile = () => {
             if(!error) {
                 console.log("Checking")
                 dispatch(setAuthenticatedUserData(data))
-                router.back();
+                await router.back();
             }
         }
     }
@@ -548,7 +599,7 @@ const EditProfile = () => {
                         { !selectedProfileBackground && <RemoteImage skeletonHeight={styles.profileBackgroundImage.height} skeletonWidth={Dimensions.get('window').width * .95} style={styles.profileBackgroundImage} path={authenticatedUserData?.backgroundProfileImage}/>}
                         { selectedProfileBackground && <Image style={styles.profileBackgroundImage} source={{ uri: selectedProfileBackground.uri }}/>}
                     </View>
-                    <TouchableOpacity style={[styles.removeImageButton, { marginHorizontal: 10, justifyContent: 'center', alignItems: 'center' }]}>
+                    <TouchableOpacity onPress={removeProfileBackgroundImage} style={[styles.removeImageButton, { marginHorizontal: 10, justifyContent: 'center', alignItems: 'center' }]}>
                         <Text style={styles.removeImageButtonText}>Remove Image</Text>
                     </TouchableOpacity>
                 </View>
@@ -562,7 +613,7 @@ const EditProfile = () => {
                         { selectedProfileImage && <Image style={styles.profileImage} source={{ uri: selectedProfileImage.uri }}/> }
                     </View>
 
-                    <TouchableOpacity style={styles.removeImageButton}>
+                    <TouchableOpacity onPress={removeProfileImage} style={styles.removeImageButton}>
                         <Text style={styles.removeImageButtonText}>Remove Image</Text>
                     </TouchableOpacity>
                 </View>

@@ -9,6 +9,7 @@ import NotificationFeed from './NotificationFeed'
 const Notifications = () => {
     const mode = useSelector((state: RootState) => state.appearance.currentMode)
     const styles = getStyles(mode)
+    
     return (
       <View style={styles.container}>
         <NotificationHeader/>

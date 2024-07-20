@@ -489,12 +489,20 @@ const ProfileSettings = () => {
             .select()
             .single()
             if(!error) {
+                if(authenticatedUserData?.profileImage !== 'blankprofile.png' && authenticatedUserData?.backgroundProfileImage !== 'profileBackgroundFallBack.jpeg') {  
                 const { error:storageError } = await supabase.storage
                 .from('userfiles')
-                .remove([String(authenticatedUserData?.profileImage), String(authenticatedUserData?.backgroundProfileImage), String(authenticatedUserData?.audio)])
+                .remove([String(authenticatedUserData?.profileImage), String(authenticatedUserData?.backgroundProfileImage)])
                 if(!storageError) {
                     console.log('Files Removed successfully')
-                }
+                }}
+                if(authenticatedUserData?.audio) {  
+                    const { error:storageError } = await supabase.storage
+                    .from('userfiles')
+                    .remove([String(authenticatedUserData?.audio)])
+                    if(!storageError) {
+                        console.log('Audio File Removed successfully')
+                    }}
                 dispatch(setSystemNotificationState(true))
                 dispatch(setSystemNotificationData({ type: 'neutral', message: "Account Deleted. Please Restart App"}))
                 const { error } = await supabase.auth.signOut();

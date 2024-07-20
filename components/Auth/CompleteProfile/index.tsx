@@ -318,7 +318,7 @@ const CompleteProfile = () => {
         <View style={styles.container}>
             <View style={styles.headerContainer}>
                 <Text style={styles.headerText}>Complete Profile</Text>
-                <Text style={styles.subHeaderText}>Add audio to create an <Link style={styles.link} href={''}>Audio Profile</Link></Text>
+                <Text style={styles.subHeaderText}>Add audio to create an <Link style={styles.link} href={'/(auth)/AudioProfileInfoScreen'}>Audio Profile</Link></Text>
             </View>
 
             <View style={styles.contentContainer}>

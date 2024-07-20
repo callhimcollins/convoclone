@@ -58,7 +58,6 @@ const getStyles = (appearanceMode: appearanceStateType) => {
         navigateContainer: {
             flexDirection: 'row',
             alignItems: 'center',
-            marginTop: 30
         },
         navigateText: {
             color: appearanceMode.secondary,
@@ -70,6 +69,23 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             color: appearanceMode.primary,
             fontFamily: 'bold',
             fontSize: 15,
+        },
+        eulaContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            marginTop: 30,
+            marginBottom: 15
+        },
+        eulaText: {
+            color: appearanceMode.secondary,
+            fontFamily: 'bold',
+            fontSize: 13,
+        },
+        eulaButtonText: {
+            color: appearanceMode.primary,
+            fontFamily: 'bold',
+            fontSize: 13,
         },
         footerImage: {
             width: 30,

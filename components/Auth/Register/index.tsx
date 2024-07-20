@@ -128,6 +128,13 @@ const Register = () => {
             <Entypo name='chevron-right' size={20} color={appearanceMode.primary}/>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.eulaContainer}>
+          <Text style={styles.eulaText}>By Continuing, You Agree To The</Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/EulaScreen')}>
+            <Text style={styles.eulaButtonText}>Terms Of Service</Text>
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.navigateContainer}>
           <Text style={styles.navigateText}>Got an Account?</Text>
@@ -135,6 +142,7 @@ const Register = () => {
             <Text style={styles.navigateButtonText}>Login</Text>
           </TouchableOpacity>
         </View>
+
 
         <View style={styles.footer}>
 

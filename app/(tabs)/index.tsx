@@ -20,6 +20,7 @@ import { getConvoForChat, setReplyChat } from '@/state/features/chatSlice'
 import * as ExpoNotifications from 'expo-notifications';
 import MediaFullScreen from '@/components/MediaFullScreen'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import Profile from '@/components/Profile'
 
 
 
@@ -392,6 +393,9 @@ const TabLayoutScreen = (session: Session) => {
         </View>
         <View style={{ display: activeTab.name === 'Keep Up' ? 'flex' : 'none', flex: 1 }}>
           <KeepUp/>
+        </View>
+        <View style={{ display: activeTab.name === 'Profile' ? 'flex' : 'none', flex: 1 }}>
+          <Profile/>
         </View>
           { activeTab.name === 'Notifications' && <Notifications/>}
         { convoStarterStater && <BottomSheet/>}

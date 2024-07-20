@@ -13,7 +13,9 @@ export type userType = {
     backgroundProfileImage?: string
     links?: Array<linkType>,
     isRobot?: boolean,
-    pushToken?: string
+    pushToken?: string,
+    isNew?: boolean,
+    badge_count?: number
 }
 
 export type blockedUserType = {

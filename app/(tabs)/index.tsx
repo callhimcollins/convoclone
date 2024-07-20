@@ -359,6 +359,20 @@ const TabLayoutScreen = (session: Session) => {
     }
   }, [showFullScreenMedia])
 
+  useEffect(() => {
+    const checkIfUserIsNew = async () => {
+      if(authenticatedUserData?.isNew) {
+        // Add a slight delay before redirecting
+        setTimeout(() => {
+          router.push('(auth)/AudioProfileInfoScreen')
+        }, 3000); // 1 second delay
+      }
+    }
+    
+    checkIfUserIsNew()
+  }, [authenticatedUserData])
+
+
     return (
       <View style={[styles.container, { backgroundColor: appearanceMode.backgroundColor }]}>
           { showFullScreenMedia && currentRoute !== '(profile)' && currentRoute !== '(chat)' && <Animated.View style={[styles.mediaContainer, animatedMediaStyles, { display: showFullScreenMedia ? 'flex' : 'none' }]}>

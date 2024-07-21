@@ -106,7 +106,7 @@ const getStyles = (appearanceMode: appearanceStateType) => {
             height: DEVICE_HEIGHT, 
             width: DEVICE_WIDTH,
             backgroundColor: Platform.OS === 'android' ? appearanceMode.backgroundColor : appearanceMode.backgroundTransparent,
-            borderRadius: 20
+            borderRadius: Platform.OS === 'android' ? 10 : 20,
         },
         profileModal: {
             height: '100%', 

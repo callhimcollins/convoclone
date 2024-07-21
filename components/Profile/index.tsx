@@ -128,25 +128,36 @@ const Profile = () => {
     }
 
     useEffect(() => {
-        setLoading(true);
-        const channel = supabase.channel('custom-ID-channel')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'Convos' },
-            (payload) => {
-              if (payload.eventType === 'DELETE') {
-                setConvos(prevConvos => prevConvos && prevConvos.filter(convo => convo.convo_id !== payload.old.convo_id));
-              } else if (payload.eventType === 'INSERT') {
-                setConvos(prevConvos => [payload.new, ...prevConvos]);
-              }
+      setLoading(true);
+      const channel = supabase.channel(`profile-${profileID}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'Convos' },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              setConvos(prevConvos => prevConvos ? prevConvos.filter(convo => convo.convo_id !== payload.old.convo_id) : []);
+            } else if (payload.eventType === 'INSERT') {
+              const newConvo = payload.new;
+              setConvos(prevConvos => {
+                const currentConvos = prevConvos || [];
+                if (activeTab === 'Convos' && !newConvo.private && !newConvo.isDiscoverable && !newConvo.isHighlight) {
+                  return [newConvo, ...currentConvos];
+                } else if (activeTab === 'Private' && newConvo.private) {
+                  return [newConvo, ...currentConvos];
+                }
+                return currentConvos;
+              });
             }
-          )
-          .subscribe();
+          }
+        )
+        .subscribe();
     
-        return () => {
-          supabase.removeChannel(channel);
-        };
-      }, [profileID]);
+      setLoading(false);
+    
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [profileID, activeTab]);
     
       useEffect(() => {
         if (profileID !== authenticatedUserData?.user_id) {

@@ -21,7 +21,7 @@ const SearchHeader = (search: SearchHeaderProps) => {
         if(Platform.OS === 'android') {
             return (
                 <View key={activeTab.name} style={styles.container}>
-                    <TextInput value={search.searchValue} onChangeText={search.searchFuntion} placeholderTextColor={appearanceMode.faint} placeholder='Search' style={styles.textInput}/>
+                    <TextInput value={search.searchValue} onChangeText={search.searchFuntion} placeholderTextColor={appearanceMode.faint} placeholder='Search' style={[styles.textInput, { paddingVertical: 6 }]}/>
                 </View>
             )
         } else {

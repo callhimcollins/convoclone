@@ -1,6 +1,5 @@
-import { StyleSheet, View, ScrollView, FlatList, TouchableOpacity, Text, Image, TextInput, Linking, Dimensions } from 'react-native'
+import { View, ScrollView, FlatList, TouchableOpacity, Text, Image, TextInput, Linking, Dimensions, Platform, RefreshControl } from 'react-native'
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { appearanceStateType } from '@/state/features/appearanceSlice'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
 import SearchHeader from './SearchHeader'
@@ -22,6 +21,7 @@ import RemoteVideo from '../RemoteVideo'
 import { ResizeMode } from 'expo-av'
 import { setFullScreenSource, setShowFullScreen, togglePlayPause } from '@/state/features/mediaSlice'
 import { randomUUID } from 'expo-crypto'
+import getStyles from './styles'
 
 
 const DEVICE_WIDTH = Dimensions.get('window').width
@@ -34,6 +34,7 @@ const Search = () => {
     const [convoResults, setConvoResults] = useState<convoType[]>([])
     const [usersResults, setUsersResults] = useState<userType[]>([])
     const [discoverable, setDiscoverable] = useState<discoverType>()
+    const [refreshing, setRefreshing] = useState<boolean>(false)
     const [content, setContent] = useState<string>('')
     const [feedback, setFeedback] = useState('')
     const dispatch = useDispatch()
@@ -55,6 +56,7 @@ const Search = () => {
         .select('*, Users(user_id, username, profileImage, audio, backgroundProfileImage)')
         .eq('private', false)
         .eq('isDiscoverable', false)
+        .eq('isHighlight', false)
         .textSearch('convoStarter', `${debouncedSearch}`, {
             type: 'websearch',
             config: 'english'
@@ -171,6 +173,10 @@ const Search = () => {
         } 
     }
 
+    const onRefreshDiscover = () => {
+        getDiscoverable()
+    }
+
     const updateConvoLastChat = useCallback(async () => {
         const { error } = await supabase
         .from('Convos')
@@ -245,7 +251,7 @@ const Search = () => {
             }}
             />}
             { !search && 
-            <KeyboardAwareScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 150, paddingBottom: 120 }}>
+            <KeyboardAwareScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefreshDiscover}/>} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 150, paddingBottom: 120 }}>
                 {/* <TouchableOpacity style={styles.inviteButton}>
                     <Text style={styles.inviteButtonText}>Invite 5 People And Get $20 Through CashApp</Text>
                     <Text style={styles.inviteButtonSubtext}>Tap To Read Conditions</Text>
@@ -297,12 +303,22 @@ const Search = () => {
                             { discoverable?.Convos.files && <RemoteImage path={String(discoverable?.Convos?.files[0])} style={styles.discoverImage}/>}
                         </TouchableOpacity>
                     }
+
+                        {Platform.OS === 'ios' ? (
                         <TouchableOpacity onPress={handleOpenLink} style={styles.mediaTextContainer}>
                             <BlurView key={activeTab.name} intensity={80}>
                                 <Text style={styles.mediaText}>{discoverable?.Convos.convoStarter}</Text>
                                 <Text style={styles.viewSourceText}>Tap To View Source</Text>
                             </BlurView>
                         </TouchableOpacity>
+                        ) : (
+                        <TouchableOpacity onPress={handleOpenLink} style={styles.mediaTextContainer}>
+                            <View key={activeTab.name} style={{ backgroundColor: 'rgba(0,0,0,0.8)' }}>
+                                <Text style={styles.mediaText}>{discoverable?.Convos.convoStarter}</Text>
+                                <Text style={styles.viewSourceText}>Tap To View Source</Text>
+                            </View>
+                        </TouchableOpacity>
+                        )}
                     </View>
 
                     <View style={{ marginHorizontal: 10 }}>
@@ -322,8 +338,8 @@ const Search = () => {
                     </View>
 
                     <View style={styles.experienceInputContainer}>
-                        <TextInput value={feedback} onChangeText={(feedback) => setFeedback(feedback)} placeholderTextColor={appearanceMode.textColor} style={styles.experienceInput} placeholder='How has your experience been?'/>
-                        <TouchableOpacity onPress={handleSendFeedback} style={styles.sendButton}>
+                        <TextInput value={feedback} onChangeText={(feedback) => setFeedback(feedback)} placeholderTextColor={appearanceMode.textColor} style={[styles.experienceInput, Platform.OS === 'android' && { paddingVertical: 5 }]} placeholder='How has your experience been?'/>
+                        <TouchableOpacity onPress={handleSendFeedback} style={[styles.sendButton, Platform.OS === 'android' && { paddingVertical: 12 }]}>
                             <Text style={styles.sendButtonText}>Send</Text>
                         </TouchableOpacity>
                     </View>
@@ -338,177 +354,3 @@ export default memo(Search)
 
 // ... (rest of the file, including getStyles function, remains unchanged)
 
-const getStyles = (appearanceMode: appearanceStateType) => {
-    return StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: appearanceMode.backgroundColor
-        },
-        text: {
-            color: appearanceMode.textColor,
-            fontFamily: 'extrabold',
-            fontSize: 15,
-            marginVertical: 15,
-            marginLeft: 10
-        },
-        usercardContainer: {
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            marginHorizontal: 5,
-            justifyContent: 'space-between',
-            backgroundColor: appearanceMode.backgroundColor
-        },
-        inviteButton: {
-            backgroundColor: appearanceMode.primary,
-            padding: 30,
-            marginHorizontal: 10,
-            borderRadius: 15,
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 3
-        },
-        inviteButtonText: {
-            color: 'white',
-            fontFamily: 'extrabold',
-            fontSize: 15,
-            textAlign: 'center'
-        },
-        inviteButtonSubtext: {
-            color: 'white',
-            fontFamily: 'extrabold',
-        },
-        discoverContainer: {
-            marginTop: 5
-        },
-        discoverHeaderText: {
-            color: appearanceMode.textColor,
-            fontFamily: 'extrabold',
-            fontSize: 16,
-            marginLeft: 15
-        },
-        mediaContainer: {
-            marginTop: 10,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        videoContainer: {
-            width: '100%',
-            height: 450,
-            justifyContent: 'center',
-            alignItems: 'center'
-        },
-        videoButtonOverlayContainer: {
-            position: 'absolute',
-            zIndex: 100,
-            height: 450,
-            width: '95%',
-            justifyContent: 'center',
-            alignItems: 'center',
-            marginHorizontal: 10,
-        },
-        mediaControlButton: {
-            padding: 15,
-            overflow: 'hidden',
-            borderRadius: 15
-        },
-        mediaControlButtonImage: {
-            width: 30,
-            height: 30,
-        },
-        discoverImage: {
-            width: DEVICE_WIDTH - 20,
-            height: 450,
-            borderRadius: 10
-        },
-        mediaTextContainer: {
-            position: 'absolute',
-            bottom: 2,
-            width: '94%',
-            overflow: 'hidden',
-            borderRadius: 10,
-        },
-        mediaText: {
-            color: 'white',
-            fontFamily: 'extrabold',
-            fontSize: 15,
-            marginTop: 10,
-            marginBottom: 25,
-            marginLeft: 10
-        },
-        viewSourceText: {
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            color: appearanceMode.primary,
-            position: 'absolute',
-            bottom: 5,
-            right: 10,
-            fontFamily: 'extrabold',
-            fontSize: 12,
-        },
-        createDiscoverPostContainer: {
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: '100%',
-            marginTop: 20
-        },
-        createDiscoverPostButton: {
-            backgroundColor: appearanceMode.primary,
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 10,
-            borderRadius: 7,
-            width: '90%',
-        },
-        createDiscoverPostButtonText: {
-            color: 'white',
-            fontFamily: 'extrabold',
-            fontSize: 15
-        },
-        experienceContainer: {
-            marginTop: 40,
-            paddingHorizontal: 10,
-            paddingVertical: 20,
-            gap: 30,
-            borderWidth: 1,
-            borderColor: appearanceMode.faint,
-            marginHorizontal: 5,
-            borderRadius: 20
-        },
-        experienceHeaderTextContainer: {
-            gap: 5
-        },
-        experienceHeaderText: {
-            color: appearanceMode.textColor,
-            fontFamily: 'extrabold',
-            fontSize: 18
-        },
-        experienceHeaderSubtext: {
-            color: appearanceMode.secondary,
-            fontFamily: 'extrabold',
-        },
-        experienceInputContainer: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            width: '100%',
-            backgroundColor: appearanceMode.faint,
-            borderRadius: 7
-        },
-        experienceInput: {
-            fontFamily: 'bold',
-            color: appearanceMode.textColor,
-            flex: 1,
-            paddingHorizontal: 10,
-            paddingVertical: 10,
-        },
-        sendButton: {
-            backgroundColor: appearanceMode.primary,
-            padding: 10,
-            borderRadius: 7,
-        },
-        sendButtonText: {
-            color: 'white',
-            fontFamily: 'extrabold',
-        }
-    })
-}

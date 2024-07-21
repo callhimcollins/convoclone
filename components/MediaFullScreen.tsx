@@ -67,6 +67,11 @@ const MediaFullScreen = () => {
         }
     }
 
+    const closeMediaFullScreen = async () => {
+        videoTranslationY.value = withTiming((DEVICE_HEIGHT))
+        await changeFullMediaVisibility(false)
+    }
+
     useEffect(() => {
         (async () => {
             await Audio.setAudioModeAsync({
@@ -90,14 +95,13 @@ const MediaFullScreen = () => {
         onActive: (event, context) => {
             videoTranslationY.value = event.translationY + context.translateY
         },
-        onEnd: () => {
+        onEnd: async () => {
             if(Math.abs(videoTranslationY.value) > 150) {
                 videoTranslationY.value = withTiming((DEVICE_HEIGHT))
-                runOnJS(changeFullMediaVisibility)(false)
+                await runOnJS(changeFullMediaVisibility)(false)
             } else {
                 videoTranslationX.value = withSpring(0)
                 videoTranslationY.value = withSpring(0)
-
             }
         }
     })
@@ -109,7 +113,7 @@ const MediaFullScreen = () => {
                 <Animated.View style={[styles.container, animatedTranslationStyle]}>
                     <Animated.View style={[animatedTitleStyle, styles.mediaHeader]}>
                         <Text numberOfLines={1} ellipsizeMode='tail' style={styles.mediaHeaderText}>{fullScreenSource?.convoStarter}</Text>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={closeMediaFullScreen}>
                             <Ionicons name="close" size={38} color="white" />
                         </TouchableOpacity>
                     </Animated.View>

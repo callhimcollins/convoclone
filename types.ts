@@ -170,3 +170,4 @@ export type discoverType = {
     Convos: convoType,
 }
 // l5Q69FWCl3tsY4jM
+// npx cross-env EAS_NO_VCS=1 eas build --platform android --profile development

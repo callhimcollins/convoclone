@@ -47,8 +47,10 @@
       "router": {
         "origin": false
       },
+      "supabaseUrl": "${SUPABASE_URL}",
+      "supabaseKey": "${SUPABASE_KEY}",
       "eas": {
-        "projectId": "8d6e4ada-0707-4032-8305-cffe76788300"
+        "projectId": "d7866ba3-107a-4f4b-a67e-b6f3f34a39e0"
       }
     }
   }

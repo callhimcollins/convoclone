@@ -14,4 +14,5 @@ Think of convo as Discord + Twitter(Now X), where there're a list of topics you 
 
 
 Live on Play Store - https://play.google.com/store/apps/details?id=com.chocolate.convo&utm_source=na_Med
-Live on App Store - 
+
+Live on App Store - https://apps.apple.com/us/app/convoapp/id6578462047

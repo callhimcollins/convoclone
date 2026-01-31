@@ -83,9 +83,7 @@ Initially built with Firebase, we migrated to Supabase because:
 
 ## 🔮 Future Plans
 
-- [ ] Voice chat rooms
 - [ ] Private messaging
-- [ ] User profiles and following system
 - [ ] Content moderation tools
 - [ ] Advanced topic recommendation algorithm
 - [ ] Community badges and achievements

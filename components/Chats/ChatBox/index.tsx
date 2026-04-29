@@ -8,7 +8,7 @@ import {  Ionicons } from '@expo/vector-icons'
 import moment from 'moment'
 import { router } from 'expo-router'
 import Animated, {  FadeInRight, LightSpeedInRight } from 'react-native-reanimated'
-import { addToUserCache, setReplyChat } from '@/state/features/chatSlice'
+import { setReplyChat } from '@/state/features/chatSlice'
 import { supabase } from '@/lib/supabase'
 import { getUserData } from '@/state/features/userSlice'
 import RemoteImage from '@/components/RemoteImage'
@@ -237,7 +237,7 @@ const ChatBox = ({ id, chat_id, Users, content, files, audio, dateCreated, convo
         <TouchableOpacity onPress={handleReplyChat}>
         <View style={styles.header}>
           <TouchableOpacity onLongPress={() => playPauseAudio('profile', String(profileAudio), String(Users.user_id))} onPress={handleProfileNavigation} style={styles.headerLeft}>
-            { !Users?.isRobot && Users && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={`${Users?.username}-profileImage`} style={styles.profileImage}/>}
+            { !Users?.isRobot && Users && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={ Users?.profileImage || `${ Users?.username}-profileImage`} style={styles.profileImage}/>}
             { !Users?.isRobot && <Text style={styles.username}>{Users?.username}</Text>}
             { Users?.isRobot && <Text style={styles.username}>Dialogue Robot</Text>}
           </TouchableOpacity>

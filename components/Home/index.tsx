@@ -131,45 +131,55 @@ const Home = () => {
         fromPrivateCircle()
     }, [authenticatedUserData])
 
-    const fetchConvos = async () => {
-        const { data: blockedUserData, error: blockedUserError } = await supabase
+const fetchConvos = async () => {
+    if (!authenticatedUserData?.user_id) return
+
+    const { data: blockedUserData, error: blockedUserError } = await supabase
         .from('blockedUsers')
         .select('*')
         .eq('user_id', String(authenticatedUserData?.user_id))
-        if(!blockedUserError) {
-            const blockedUsersList = blockedUserData.map((item: any) => item.blockedUserID)
-            const { data:convoData, error:convoError } = await supabase
+
+    if (!blockedUserError) {
+        const blockedUsersList = blockedUserData.map((item: any) => item.blockedUserID)
+
+        const query = supabase
             .from('Convos')
             .select('*, Users (user_id, username, profileImage, audio, backgroundProfileImage)')
-            .not('user_id', 'in', `(${blockedUsersList.join(',')})`)
             .eq('private', false)
             .eq('isDiscoverable', false)
             .eq('isHighlight', false)
             .range((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE - 1)
             .order('dateCreated', { ascending: false })
-            if(convoError) {
-                console.log('Error fetching Convos in HomeScreen: ',convoError.message)
-                setLoading(false)
-                return;
-            } else {
-                if(convoData.length === 0) {
-                    setEndReached(true)
-                    setLoading(false)
-                } else {
-                    if(currentPage === 1) {
-                        setConvos(convoData)
-                        setLoading(false)
-                    } else {
-                        setConvos(prevPosts => [...prevPosts, ...convoData])
-                        setLoading(false)
-                    }
-                }
-            }
-        } else {
+
+        if (blockedUsersList.length > 0) {
+            query.not('user_id', 'in', `(${blockedUsersList.join(',')})`)
+        }
+
+        const { data: convoData, error: convoError } = await query
+
+        if (convoError) {
+            console.log('Error fetching Convos in HomeScreen: ', convoError.message)
             setLoading(false)
             return;
+        } else {
+            if (convoData.length === 0) {
+                setEndReached(true)
+                setLoading(false)
+            } else {
+                if (currentPage === 1) {
+                    setConvos(convoData)
+                    setLoading(false)
+                } else {
+                    setConvos(prevPosts => [...prevPosts, ...convoData])
+                    setLoading(false)
+                }
+            }
         }
+    } else {
+        setLoading(false)
+        return;
     }
+}
 
     const refreshConvos = async () => {
         setLoading(true)
@@ -250,6 +260,8 @@ const Home = () => {
 
 
     useEffect(() => {
+        console.log('authenticatedUserData in HomeScreen: ', authenticatedUserData?.user_idc)
+        if (!authenticatedUserData?.user_id) return
         fetchConvos()
     }, [currentPage, authenticatedUserData])
 
@@ -277,7 +289,7 @@ const Home = () => {
                         showsVerticalScrollIndicator={false}
                         ListHeaderComponent={() => (
                             <View style={{ backgroundColor: appearanceMode.backgroundColor }}>
-                                <ScrollView contentContainerStyle={{ paddingHorizontal: 10 }} showsHorizontalScrollIndicator={false} horizontal style={styles.topOptionContainer}>
+                                {/* <ScrollView contentContainerStyle={{ paddingHorizontal: 10 }} showsHorizontalScrollIndicator={false} horizontal style={styles.topOptionContainer}>
                                 <TouchableOpacity style={styles.topOptionButton}>
                                         <Text style={styles.topOptionText}>From Earth</Text>
                                     </TouchableOpacity>
@@ -290,7 +302,7 @@ const Home = () => {
                                     <TouchableOpacity style={styles.topOptionButton}>
                                         <Text style={styles.topOptionText}>Robots Only</Text>
                                     </TouchableOpacity>
-                                </ScrollView>
+                                </ScrollView> */}
                                 <Highlights 
                                 highLightUsers={highlightUsers} 
                                 highlight={highlightsData[indexState]}

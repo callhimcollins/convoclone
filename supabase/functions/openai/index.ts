@@ -15,10 +15,10 @@ const openai = new OpenAI({
 Deno.serve(async (req) => {
   const { query } = await req.json()
 
-  const chatCompletion = await openai.chat.completions.create({
-    messages: [{ role: 'user', content: query }],
-    model: 'gpt-3.5-turbo',
-    max_tokens: 256,
+  const chatCompletion = await openai.response.create({
+    input: [{ role: 'user', content: query }],
+    model: 'gpt-5.3-chat-latest',
+    max_output_tokens: 256,
   });
 
   return new Response(

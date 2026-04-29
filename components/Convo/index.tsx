@@ -258,13 +258,23 @@ const Convo = (convo: convoType) => {
             content: `You Are Dialogue Robot. Be The Character In This Role: ${convo?.convoStarter}. Keep it as natural as the character in the role. Use Emojis Only When ABSOLUTELY Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Treat usernames as their own individual character and only mention their usernames when ABSOLUTELY NECESSARY. Make sure to keep your words to less than 50 words`
           };
       
-          const chatCompletion = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [systemMessage, ...messages],
-            max_tokens: 100
-          });
+        //   const chatCompletion = await openai.chat.completions.create({
+        //     model: 'gpt-4o',
+        //     messages: [systemMessage, ...messages],
+        //     max_tokens: 100
+        //   });
+
+            const chatCompletion = await openai.responses.create({
+                  model: 'gpt-5.3-chat-latest',
+                  instructions: systemMessage.content as string,
+                  input: messages.map((msg) => ({
+                    role: msg.role === "system" ? "system" : "user",
+                    content: String(msg.content),
+                  })),
+                  max_output_tokens: 100
+            });
       
-          const botResponse = chatCompletion.choices[0].message.content;
+          const botResponse = chatCompletion.output_text;
           await sendChatByRobot(String(convo.convo_id), robotData, `${convo.convo_id}`, String(botResponse));
         } catch (error) {``
           console.error("Error in completeBotResponse:", error);
@@ -737,14 +747,14 @@ const Convo = (convo: convoType) => {
                     <View style={styles.header}>
                         { convo.Users?.audio && <Skeleton height={40} width={150} {...SkeletonCommonProps}>
                             <TouchableOpacity onLongPress={() => playPauseAudio('profile', String(audio), String(convo.Users?.user_id))} onPress={handleGuestProfile} style={styles.headerLeft}>
-                                { convo.Users && <RemoteImage skeletonHeight={styles.userImage.height} skeletonWidth={styles.userImage.width} style={styles.userImage} path={`${convo.Users?.username}-profileImage`}/>}
+                                { convo.Users && <RemoteImage skeletonHeight={styles.userImage.height} skeletonWidth={styles.userImage.width} style={styles.userImage} path={ convo.Users?.profileImage || `${convo.Users?.username}-profileImage`}/>}
                                 {/* { convo.Users && <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>} */}
                                 { convo.Users && <Text style={styles.username}>{ convo?.Users.username }</Text>}
                             </TouchableOpacity>
                         </Skeleton>}
                         { !convo.Users?.audio && <Skeleton height={40} width={150} {...SkeletonCommonProps}>
                              <TouchableOpacity onPress={handleGuestProfile} style={styles.headerLeft}>
-                                { convo.Users && <RemoteImage skeletonHeight={styles.userImage.height} skeletonWidth={styles.userImage.width} style={styles.userImage} path={`${convo.Users?.username}-profileImage`}/>}
+                                { convo.Users && <RemoteImage skeletonHeight={styles.userImage.height} skeletonWidth={styles.userImage.width} style={styles.userImage} path={ convo.Users?.profileImage || `${convo.Users?.username}-profileImage`}/>}
                                 {/* { convo.Users && <Image style={styles.userImage} source={require('@/assets/images/blankprofile.png')}/>} */}
                                 { convo.Users && <Text style={styles.username}>{ convo?.Users.username }</Text>}
                             </TouchableOpacity>

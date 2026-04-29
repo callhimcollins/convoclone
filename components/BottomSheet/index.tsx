@@ -404,15 +404,15 @@ const BottomSheet = () => {
       
 
     const sendChatByRobot = async (convo_id: string, robot:any, robot_id:string) => {
-        const chatCompletion = await openai.chat.completions.create({
-            messages: [{ role: 'system', content: `You Are Dialogue Robot. Perform this role: ${convoData?.convoStarter}. Keep it chat-like and as natural as the role. Use Emojis When Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Keep your words to less than 100 words` }],
-            model: 'gpt-3.5-turbo',
-            max_tokens: 100,
+        const chatCompletion = await openai.responses.create({
+            input: [{ role: 'system', content: `You Are Dialogue Robot. Perform this role: ${convoData?.convoStarter}. Keep it chat-like and as natural as the role. Use Emojis When Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Keep your words to less than 100 words` }],
+            model: 'gpt-5.3-chat-latest',
+            max_output_tokens: 100,
         })
         const chatData = {
             convo_id,
             user_id: robot_id,
-            content: chatCompletion.choices[0].message.content,
+            content: chatCompletion.output_text,
             files: null,
             audio: null,
             userData: robot,

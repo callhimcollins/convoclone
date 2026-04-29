@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import { Provider } from 'react-redux';
 import { store } from '@/state/store';
+import Constants from 'expo-constants';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -42,6 +43,8 @@ export default function RootLayout() {
     if (loaded) {
       SplashScreen.hideAsync();
     }
+
+
   }, [loaded]);
 
   

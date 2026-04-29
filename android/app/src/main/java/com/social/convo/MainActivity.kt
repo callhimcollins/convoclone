@@ -1,4 +1,4 @@
-package com.startconvoapp.convoclone
+package com.social.convo
 
 import android.os.Build
 import android.os.Bundle

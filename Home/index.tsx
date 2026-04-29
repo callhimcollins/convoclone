@@ -28,7 +28,7 @@ const Home = () => {
     const indexState = useSelector((state: RootState) => state.highlights.indexState)
     const authenticatedUserData = useSelector((state: RootState) => state.user.authenticatedUserData)
     const experienceCheckState = useSelector((state: RootState) => state.user.experienceCheckState)
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(false)
     const [endReached, setEndReached] = useState(false)
     const [privateConvoList, setPrivateConvoList] = useState<Array<convoType>>([])
     const [privateConvoListLoading, setPrivateConvoListLoading] = useState(true)
@@ -132,6 +132,8 @@ const Home = () => {
     }, [authenticatedUserData])
 
     const fetchConvos = async () => {
+        if (!authenticatedUserData?.user_id) return;
+        
         const { data: blockedUserData, error: blockedUserError } = await supabase
         .from('blockedUsers')
         .select('*')
@@ -250,6 +252,7 @@ const Home = () => {
 
 
     useEffect(() => {
+        if (authenticatedUserData?.user_id) return;
         fetchConvos()
     }, [currentPage, authenticatedUserData])
 

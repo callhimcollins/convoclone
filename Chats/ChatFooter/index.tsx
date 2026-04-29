@@ -126,13 +126,17 @@ const ChatFooter = () => {
         content: `You Are Dialogue Robot. Be The Character In This Role: ${convoData?.convoStarter}. Keep it as natural as the character in the role. Use Emojis Only When ABSOLUTELY Necessary. !!! DO NOT DIVERT TO ANOTHER ROLE !!!. Treat usernames as their own individual character and only mention their usernames when ABSOLUTELY NECESSARY. Make sure to keep your words to less than 50 words`
       };
   
-      const chatCompletion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [systemMessage, ...messages],
-        max_tokens: 100
+      const chatCompletion = await openai.responses.create({
+        model: 'gpt-5.3-chat-latest',
+        instructions: systemMessage.content as string,
+        input: messages.map((msg) => ({
+          role: msg.role === "system" ? "system" : "user",
+          content: String(msg.content),
+        })),
+        max_output_tokens: 100
       });
   
-      const botResponse = chatCompletion.choices[0].message.content;
+      const botResponse = chatCompletion.output_text;
       await sendChatByRobot(String(convoID), robotData, `${convoID}`, String(botResponse));
     } catch (error) {``
       console.error("Error in completeBotResponse:", error);

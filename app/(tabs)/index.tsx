@@ -202,7 +202,7 @@ const TabLayoutScreen = (session: Session) => {
   
   
   useEffect(() => {
-    if(!sessionChecked.current && authenticatedUserData === null) {
+    if(!sessionChecked.current && !authenticatedUserData) {
       checkSession()
       sessionChecked.current = true
     }

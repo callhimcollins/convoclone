@@ -9,7 +9,7 @@ import OpenAI from 'https://deno.land/x/openai@v4.52.1/mod.ts';
 
 console.log("Hello from Functions!")
 const openai = new OpenAI({
-  apiKey: "sk-proj-RjWAUH158isdtMqs6CrsT3BlbkFJUWprPdWIpMQ2QfN2lIvZ", // This is the default and can be omitted
+  apiKey: "OPENAI_API_KEY", // This is the default and can be omitted
 });
 
 Deno.serve(async (req) => {

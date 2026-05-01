@@ -1,5 +1,5 @@
-import { Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import { Platform, Text, TouchableOpacity, View } from 'react-native'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/state/store'
@@ -10,37 +10,102 @@ import { useRouter } from 'expo-router'
 import { getUserData } from '@/state/features/userSlice'
 import { supabase } from '@/lib/supabase'
 import RemoteImage from '@/components/RemoteImage'
-import { userType } from '@/types'
-import { addToUserCache, getConvoForChat, setShowModal } from '@/state/features/chatSlice'
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av'
+import { setShowModal } from '@/state/features/chatSlice'
+import {
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+} from 'expo-audio'
 import { setAudioState } from '@/state/features/mediaSlice'
-import { setSystemNotificationData, setSystemNotificationState } from '@/state/features/notificationSlice'
+import {
+  setSystemNotificationData,
+  setSystemNotificationState,
+} from '@/state/features/notificationSlice'
 
 const ChatHeader = () => {
   const gesture = Gesture.Pan()
-  const convoData = useSelector((state:RootState) => state.chat.convo)
-  const authenticatedUserData = useSelector((state:RootState) => state.user.authenticatedUserData)
-  const appearanceMode = useSelector((state:RootState) => state.appearance.currentMode)
+  const convoData = useSelector((state: RootState) => state.chat.convo)
+  const appearanceMode = useSelector((state: RootState) => state.appearance.currentMode)
+  const audioState = useSelector((state: RootState) => state.media.audioState)
+
   const [convoAudio, setConvoAudio] = useState<string | null>(null)
-  const audioState = useSelector((state:RootState) => state.media.audioState)
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPaused, setIsPaused] = useState(true)
+
   const dispatch = useDispatch()
   const styles = getStyles(appearanceMode)
   const router = useRouter()
 
+  const player = useAudioPlayer(null)
+  const playerStatus = useAudioPlayerStatus(player)
+
+  const notify = useCallback(
+    (type: 'neutral' | 'error', message: string) => {
+      dispatch(setSystemNotificationState(true))
+      dispatch(setSystemNotificationData({ type, message }))
+    },
+    [dispatch]
+  )
+
+  const safePausePlayer = useCallback(() => {
+    try {
+      player?.pause()
+      return true
+    } catch (error) {
+      console.log('safePausePlayer failed:', error)
+      return false
+    }
+  }, [player])
+
+  const safePlayPlayer = useCallback(() => {
+    try {
+      player?.play()
+      return true
+    } catch (error) {
+      console.log('safePlayPlayer failed:', error)
+      return false
+    }
+  }, [player])
+
+  const safeReplacePlayer = useCallback(
+    (uri: string) => {
+      try {
+        player?.replace(uri)
+        return true
+      } catch (error) {
+        console.log('safeReplacePlayer failed:', error)
+        return false
+      }
+    },
+    [player]
+  )
+
+  const safeSeekPlayer = useCallback(
+    (seconds: number) => {
+      try {
+        player?.seekTo(seconds)
+        return true
+      } catch (error) {
+        console.log('safeSeekPlayer failed:', error)
+        return false
+      }
+    },
+    [player]
+  )
+
   const handleBackButton = () => {
+    safePausePlayer()
     router.back()
   }
 
   const handleProfileNavigation = () => {
     dispatch(getUserData(convoData.userData || convoData.Users))
-    if(convoData.userData || convoData.Users) {
+
+    if (convoData.userData || convoData.Users) {
       router.push({
         pathname: '/(profile)/[profileID]',
         params: {
-          profileID: String(convoData.userData?.user_id || convoData.Users?.user_id)
-        }
+          profileID: String(convoData.userData?.user_id || convoData.Users?.user_id),
+        },
       })
     }
   }
@@ -49,111 +114,225 @@ const ChatHeader = () => {
     dispatch(setShowModal(true))
   }
 
-  const fetchConvoAudio = async () => {
+  const fetchConvoAudio = useCallback(async () => {
     try {
-      const { data } = await supabase.storage
-      .from('userfiles')
-      .getPublicUrl(String(convoData.audio));
-      if(data) {
+      if (!convoData.audio) {
+        setConvoAudio(null)
+        return
+      }
+
+      const { data } = supabase.storage
+        .from('userfiles')
+        .getPublicUrl(String(convoData.audio))
+
+      if (data?.publicUrl) {
         setConvoAudio(data.publicUrl)
       }
     } catch (error) {
       console.log(error)
+      notify('error', 'Unable to fetch audio')
+    }
+  }, [convoData.audio, notify])
+
+  const playPauseAudio = async (
+    audioType: 'profile' | 'convo',
+    audioSource: string | null,
+    convo_id?: string
+  ) => {
+    if (!convoData.audio) {
+      notify('neutral', 'This Convo Has No Audio')
+      return
+    }
+
+    if (!audioSource) {
+      notify('neutral', 'Nothing To Play')
+      return
+    }
+
+    const audioID = audioType === 'convo' ? convo_id : 'profile'
+
+    if (!audioID) {
+      notify('neutral', 'Nothing To Play')
+      return
+    }
+
+    try {
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
+        interruptionMode: 'doNotMix',
+      })
+
+      const sameAudioIsSelected = audioState.currentlyPlayingAudioID === audioID
+
+      if (sameAudioIsSelected && playerStatus.playing) {
+        const paused = safePausePlayer()
+
+        if (paused) {
+          dispatch(
+            setAudioState({
+              currentlyPlayingAudioID: audioID,
+              isPaused: true,
+            })
+          )
+        }
+
+        return
+      }
+
+      try {
+        await setIsAudioActiveAsync(false)
+        await setIsAudioActiveAsync(true)
+      } catch (error) {
+        console.log('setIsAudioActiveAsync failed:', error)
+      }
+
+      const replaced = safeReplacePlayer(audioSource)
+      if (!replaced) {
+        notify('error', 'An Error Occured')
+        return
+      }
+
+      safeSeekPlayer(0)
+
+      const played = safePlayPlayer()
+
+      if (played) {
+        dispatch(
+          setAudioState({
+            currentlyPlayingAudioID: audioID,
+            isPaused: false,
+          })
+        )
+      } else {
+        notify('error', 'An Error Occured')
+      }
+    } catch (error) {
+      console.log(error)
+      notify('error', 'An Error Occured')
     }
   }
 
-  const playPauseAudio = async (audioType: 'profile' | 'convo', audioSource: string, convo_id?: string) => {
-    if(convoData.audio) {
-    try {
-      // Configure audio session
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-      });
-  
-      // Stop all other playing sounds
-      await Audio.setIsEnabledAsync(false);
-      await Audio.setIsEnabledAsync(true);
-  
-      // Unload any existing sound
-      if (sound) {
-        // Check if switching between profile and chat
-        if ((audioType === 'convo' && audioState.currentlyPlayingAudioID === 'profile') ||
-            (audioType === 'profile' && audioState.currentlyPlayingAudioID !== 'profile')) {
-          dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'convo' ? convo_id : 'profile', isPaused: true }));
-          await sound.unloadAsync();
-          setSound(null);
-        } else if (audioType === 'convo' && audioState.currentlyPlayingAudioID !== convo_id) {
-          await sound.unloadAsync();
-          setSound(null);
-        } else if ((audioType === 'convo' && audioState.currentlyPlayingAudioID === convo_id) ||
-                   (audioType === 'profile' && audioState.currentlyPlayingAudioID === 'profile')) {
-          if (isPaused) {
-            await sound.playAsync();
-            setIsPaused(false);
-            dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'convo' ? convo_id : 'profile', isPaused: false }));
-          } else {
-            await sound.pauseAsync();
-            setIsPaused(true);
-            dispatch(setAudioState({ currentlyPlayingAudioID: audioType === 'convo' ? convo_id : 'profile', isPaused: true }));
-          }
-          return; // Exit the function here as we've handled the play/pause
-        }
-      }
-  
-      if (audioSource) {
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri: audioSource },
-          { shouldPlay: true }
-        );
-        setSound(newSound);
-        setIsPaused(false);
-  
-        if (audioType === 'convo' && convo_id) {
-          dispatch(setAudioState({ currentlyPlayingAudioID: convo_id, isPaused: false }));
-        }
-  
-        newSound.setOnPlaybackStatusUpdate(async (status: any) => {
-          if (status.didJustFinish) {
-            setIsPaused(true);
-            await newSound.setPositionAsync(0);
-            if (audioType === 'convo' && convo_id) {
-              dispatch(setAudioState({ currentlyPlayingAudioID: convo_id, isPaused: true }));
-            }
-          }
-        });
-      } else {
-        dispatch(setSystemNotificationState(true));
-        dispatch(setSystemNotificationData({ type: 'neutral', message: 'Nothing To Play' }));
-      }
-    } catch (error) {
-      dispatch(setSystemNotificationState(true));
-      dispatch(setSystemNotificationData({ type: 'error', message: `An Error Occured` }));
-    }}
-    else {
-      dispatch(setSystemNotificationState(true));
-      dispatch(setSystemNotificationData({ type: 'neutral', message: 'This Convo Has No Audio' }));
-    }
-  };
-
+  useEffect(() => {
+    fetchConvoAudio()
+  }, [fetchConvoAudio])
 
   useEffect(() => {
-    if(convoData.audio) {
-      console.log('fetching audio')
-      fetchConvoAudio()
+    if (!playerStatus.playing && playerStatus.currentTime > 0 && playerStatus.duration > 0) {
+      const finished = Math.abs(playerStatus.duration - playerStatus.currentTime) < 0.3
+
+      if (finished) {
+        const audioID = String(convoData?.convo_id)
+
+        dispatch(
+          setAudioState({
+            currentlyPlayingAudioID: audioID,
+            isPaused: true,
+          })
+        )
+
+        safeSeekPlayer(0)
+      }
     }
-  }, [])
+  }, [
+    playerStatus.playing,
+    playerStatus.currentTime,
+    playerStatus.duration,
+    convoData?.convo_id,
+    dispatch,
+    safeSeekPlayer,
+  ])
+
+  useEffect(() => {
+    return () => {
+      safePausePlayer()
+    }
+  }, [safePausePlayer])
+
+  const renderProfileImage = () => {
+    if (convoData?.Users === undefined) {
+      return (
+        <RemoteImage
+          skeletonHeight={styles.profileImage.height}
+          skeletonWidth={styles.profileImage.width}
+          path={convoData?.userData?.profileImage}
+          style={styles.profileImage}
+        />
+      )
+    }
+
+    if (convoData?.userData === undefined) {
+      return (
+        <RemoteImage
+          skeletonHeight={styles.profileImage.height}
+          skeletonWidth={styles.profileImage.width}
+          path={convoData?.Users?.profileImage}
+          style={styles.profileImage}
+        />
+      )
+    }
+
+    return null
+  }
 
   const renderHeader = () => {
-    if(Platform.OS === 'android' || appearanceMode.name === 'light') {
-      return <View style={[styles.container, { elevation: 10, backgroundColor: appearanceMode.backgroundColor }]}>
+    if (Platform.OS === 'android' || appearanceMode.name === 'light') {
+      return (
+        <View
+          style={[
+            styles.container,
+            {
+              elevation: 10,
+              backgroundColor: appearanceMode.backgroundColor,
+            },
+          ]}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleProfileNavigation} style={styles.usernameContainer}>
+              {renderProfileImage()}
+              <Text style={styles.username}>
+                {convoData?.userData?.username || convoData?.Users?.username}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <TouchableOpacity onPress={handleBackButton}>
+              <Entypo name="chevron-left" size={26} color={appearanceMode.textColor} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onLongPress={() =>
+                playPauseAudio('convo', convoAudio, String(convoData?.convo_id))
+              }
+              onPress={handleShowModal}
+              style={styles.convoStartContainer}
+            >
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.footerText}>
+                {convoData.convoStarter}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleShowModal}>
+              <Feather name="more-vertical" size={26} color={appearanceMode.textColor} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )
+    }
+
+    return (
+      <BlurView
+        tint={appearanceMode.name === 'light' ? 'light' : 'dark'}
+        intensity={80}
+        style={styles.container}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={handleProfileNavigation} style={styles.usernameContainer}>
-            { convoData?.Users === undefined && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={convoData.userData?.profileImage} style={styles.profileImage}/> }
-            { convoData?.userData === undefined && <RemoteImage skeletonHeight={styles.profileImage.height} skeletonWidth={styles.profileImage.width} path={convoData.Users?.profileImage} style={styles.profileImage}/> }
-            <Text style={styles.username}>{ convoData?.userData?.username || convoData?.Users?.username }</Text>
+            {renderProfileImage()}
+            <Text style={styles.username}>
+              {convoData?.userData?.username || convoData?.Users?.username}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -162,40 +341,16 @@ const ChatHeader = () => {
             <Entypo name="chevron-left" size={26} color={appearanceMode.textColor} />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleShowModal} style={styles.convoStartContainer}>
-            <Text numberOfLines={1} ellipsizeMode='tail' style={styles.footerText}>{convoData.convoStarter}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={handleShowModal}>
-            <Feather name="more-vertical" size={26} color={appearanceMode.textColor} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    } else {
-      return <BlurView tint={appearanceMode.name === 'light' ? 'light' : 'dark'}  intensity={80} style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleProfileNavigation} style={styles.usernameContainer}>
-            { convoData?.Users === undefined && <RemoteImage 
-            skeletonHeight={styles.profileImage.height} 
-            skeletonWidth={styles.profileImage.width} 
-            path={convoData.userData?.profileImage} 
-            style={styles.profileImage}
-            /> }
-            { convoData?.userData === undefined && <RemoteImage 
-            skeletonHeight={styles.profileImage.height} 
-            skeletonWidth={styles.profileImage.width} 
-            path={convoData.Users?.profileImage} 
-            style={styles.profileImage}/> }
-            <Text style={styles.username}>{ convoData?.userData?.username || convoData?.Users?.username }</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <TouchableOpacity onPress={handleBackButton}>
-            <Entypo name="chevron-left" size={26} color={appearanceMode.textColor} />
-          </TouchableOpacity>
-          <TouchableOpacity onLongPress={() => playPauseAudio('convo', String(convoAudio), String(convoData?.convo_id))} onPress={handleShowModal} style={styles.convoStartContainer}>
-            <Text numberOfLines={1} ellipsizeMode='tail' style={styles.footerText}>{convoData?.convoStarter}</Text>
+          <TouchableOpacity
+            onLongPress={() =>
+              playPauseAudio('convo', convoAudio, String(convoData?.convo_id))
+            }
+            onPress={handleShowModal}
+            style={styles.convoStartContainer}
+          >
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.footerText}>
+              {convoData?.convoStarter}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleShowModal}>
@@ -203,16 +358,10 @@ const ChatHeader = () => {
           </TouchableOpacity>
         </View>
       </BlurView>
-    }
+    )
   }
-  
-  return (
-    <GestureDetector gesture={gesture}>
-      { renderHeader() }
-    </GestureDetector>
-   
-  )
+
+  return <GestureDetector gesture={gesture}>{renderHeader()}</GestureDetector>
 }
 
 export default ChatHeader
-

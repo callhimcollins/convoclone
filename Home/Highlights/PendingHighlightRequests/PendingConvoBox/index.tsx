@@ -7,7 +7,6 @@ import getStyles from './styles'
 import RemoteVideo from '@/components/RemoteVideo'
 import RemoteImage from '@/components/RemoteImage'
 import { supabase } from '@/lib/supabase'
-import { ResizeMode } from 'expo-av'
 import { BlurView } from 'expo-blur'
 import { randomUUID } from 'expo-crypto'
 import { setFullScreenSource, setShowFullScreen, togglePlayPause } from '@/state/features/mediaSlice'
@@ -29,30 +28,30 @@ const PendingConvoBox = (highlight: highlightsType2) => {
         }
     }
 
-    const handleShowFullScreen = (file:string) => {
+    const handleShowFullScreen = (file: string) => {
         dispatch(setShowFullScreen(true))
-        dispatch(setFullScreenSource({file, convoStarter: String(highlight.Convos.convoStarter)}))
+        dispatch(setFullScreenSource({ file, convoStarter: String(highlight.Convos.convoStarter) }))
         dispatch(togglePlayPause({ index: file + String(randomUUID()) }))
-      }
+    }
+
     return (
         <View style={styles.container}>
-            
             <Text style={styles.username}>{highlight.Convos.Users?.username}</Text>
             <View style={styles.mediaContainer}>
-                { highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.mp4') || highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.mov') || highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.avi') ? (
+                {highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.mp4') || highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.mov') || highlight.Convos?.files && String(highlight?.Convos?.files[0]).endsWith('.avi') ? (
                     <TouchableOpacity onPress={() => {
-                        if(highlight.Convos.files) handleShowFullScreen(String(highlight.Convos.files[0]))
-                        }}>
+                        if (highlight.Convos.files) handleShowFullScreen(String(highlight.Convos.files[0]))
+                    }}>
                         <View style={styles.mediaInfoContainer}>
                             <Text style={styles.mediaInfoText}>Video</Text>
                         </View>
-                        <RemoteVideo resizeMode={ResizeMode.COVER} style={styles.media} path={String(highlight.Convos.files[0])}/>
+                        <RemoteVideo style={styles.media} path={String(highlight.Convos.files[0])} />
                     </TouchableOpacity>
-                ) : 
-                <View>
-                    { highlight.Convos?.files && <RemoteImage style={styles.media} path={String(highlight?.Convos?.files[0])}/>}
-                </View>
-                }
+                ) : (
+                    <View>
+                        {highlight.Convos?.files && <RemoteImage style={styles.media} path={String(highlight?.Convos?.files[0])} />}
+                    </View>
+                )}
             </View>
 
             <Text style={styles.convoStarter}>{highlight.Convos.convoStarter}</Text>

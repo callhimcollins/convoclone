@@ -9,7 +9,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { ResizeMode } from "expo-av";
 import { VisibilityAwareView } from "react-native-visibility-aware-view";
 
 import { RootState } from "@/state/store";
@@ -74,7 +73,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     replyChat: null,
   }), [convoID, authenticatedUserData, input]);
 
-  // Animated styles
   const inActiveAnimatedStyles = useAnimatedStyle(() => ({
     opacity: visibleInactiveValue.value,
     zIndex: 100,
@@ -85,7 +83,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     zIndex: 100,
   }));
 
-  // Timeout functions
   const startTimeout = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
@@ -99,7 +96,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     timeOutRefHighlight.current = setTimeout(handleNextHighlight, 5000);
   };
 
-  // Navigation handlers
   const handleProfileNavigation = () => {
     dispatch(getUserData(highLightUsers[activeHighlight]));
     router.push({
@@ -121,7 +117,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     }
   };
 
-  // Action handlers
   const handlePrevHighlight = () => {
     if (Number(activeHighlight) <= 0) {
       visibleInactiveValue.value = withTiming(1);
@@ -205,7 +200,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     }
   };
 
-  // Utility functions
   const scrollToCenter = (index: number) => {
     if (highLightUsers && scrollViewRef.current) {
       const centerPosition = index * itemWidth - screenWidth / 2 + itemWidth / 2;
@@ -213,7 +207,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     }
   };
 
-  // Effects
   useEffect(() => {
     scrollToCenter(activeHighlight);
     return () => {
@@ -225,7 +218,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
     startTimeout();
   }, [activeHighlight, highlight?.Convos?.files]);
 
-  // Render functions
   const renderUserItem = (user: userType, index: number) => {
     const isActive = activeHighlight === index;
     return (
@@ -283,7 +275,6 @@ const Highlights = ({ highLightUsers, highlight }: HighlightProps) => {
               onEnd={handleNextHighlight}
               isLooping={false}
               shouldPlay={isPlaying?.index === String(file) && isPlaying.playState}
-              resizeMode={ResizeMode.COVER}
               path={String(file)}
               style={styles.image}
             />
